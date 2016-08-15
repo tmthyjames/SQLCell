@@ -42,9 +42,9 @@ except ImportError as e:
     
 # default connection string info here
 driver = 'postgresql'
-username = 'tdobbins'
-password = 'tdobbins'
-host = 'localhost'
+username = 'username'
+password = 'password'
+host = 'host'
 port = '5432'
 
 @register_line_cell_magic
