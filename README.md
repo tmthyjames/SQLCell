@@ -22,7 +22,8 @@ in the sqlcell.py script so you don't have to add them everytime. Just find the 
     host = 'host'
     port = '5432'
     
-Now you are ready to ditch pgAdmin or whatever SQL interface you use.
+Now you are ready to ditch pgAdmin or whatever SQL interface you use. Continue reading to see all the available 
+options, like writing results to a CSV, using SQLAlchemy named parameters and more.
 
 After adding your connection details to sqlcell.py, run your first query with the DB argument:
 
