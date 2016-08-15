@@ -16,3 +16,5 @@ And that's it.
 
 After you specify the database name the first time, you won't have to do so again for the rest
 of the Jupyter session unless you want to change databases.
+
+See more <a href="https://gist.github.com/tmthyjames/1366b21d0efffb73f1a91361a25b9a55">here</a>.
