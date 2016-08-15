@@ -5,6 +5,4 @@ In less than one hundred lines of Python, you can get rid of your favorite SQL i
 use a Jupyter notebook to run queries with as little as 
 
     %%sql
-    SELECT *
-    FROM your_table
-    LIMIT 10
+    your query
