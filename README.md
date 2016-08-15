@@ -17,9 +17,9 @@ in the sqlcell.py script so you don't have to add them everytime. Just find the 
 `# default connection string info here` and enter the connection details there.
 
     driver = 'postgresql'
-    username = 'tdobbins'
-    password = 'tdobbins'
-    host = 'localhost'
+    username = 'username'
+    password = 'password'
+    host = 'host'
     port = '5432'
     
 Now you are ready to ditch pgAdmin or whatever SQL interface you use.
