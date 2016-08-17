@@ -10,11 +10,14 @@ use a Jupyter notebook to run queries with as little as
 Just clone the repo and `cp` the file to Jupyter's startup directory:
 
     $ git clone https://github.com/tmthyjames/SQLCell.git
+    $ cd SQLCell
     $ cp sqlcell.py ~/.ipython/profile_default/startup/sqlcell.py
+    $ cp engine_config.py ~/.ipython/profile_default/startup/engine_config.py
     
 Then in the Jupyter notebook, define your connection variables. You can also input these directly 
-in the sqlcell.py script so you don't have to add them everytime. Just find the line that says
-`# default connection string info here` and enter the connection details there.
+in the engine_config.py (recommended) script so you don't have to add them everytime. Just find the line that says
+`# default connection string info here` and enter the connection details there. If you don't add them to engine_config.py, 
+then you have to define them everytime and invoke them with `DB=your_database` the first time you use `%%sql`.
 
     driver = 'postgresql'
     username = 'username'
