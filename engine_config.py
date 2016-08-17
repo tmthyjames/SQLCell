@@ -4,4 +4,5 @@ username = 'username'
 password = 'password'
 host = 'localhost'
 port = '5432'
-default_db = '' # empty until set by user
+# empty until set by user
+default_db = ''
