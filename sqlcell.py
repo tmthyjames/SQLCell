@@ -3,6 +3,8 @@ from IPython.core.magic import (register_line_magic, register_cell_magic,
                                 register_line_cell_magic)
 import IPython
 from sqlalchemy import create_engine
+import fileinput
+from os.path import expanduser
 from engine_config import driver, username, password, host, port, default_db
 
 engine = create_engine('postgresql://'+username+':'+password+'@'+host+':'+port+'/'+default_db)
@@ -62,6 +64,7 @@ def sql(path, cell=None):
     Returns:
         DataFrame:
     """
+    import re
     args = path.split(' ')
     for i in args:
         if i.startswith('MAKE_GLOBAL'):
@@ -72,16 +75,14 @@ def sql(path, cell=None):
             exec("global engine\nengine=create_engine('"+driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+"')")
             exec('global DB\nDB=db')
 
-            import fileinput
-            import re
-            filepath = '~/.ipython/profile_default/startup/engine_config.py'
+            home = expanduser("~")
+            filepath = home + '/.ipython/profile_default/startup/engine_config.py'
             for line in fileinput.FileInput(filepath,inplace=1):
                 line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
                 print line,
         else:
             exec(i)
     
-    import re
     matches = re.findall(r'%\(.*\)s', cell)
     for m in matches:
         param = eval(m.replace('%(', '').replace(')s', ''))
