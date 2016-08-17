@@ -1,6 +1,11 @@
 from IPython.core.magic import (register_line_magic, register_cell_magic,
                                 register_line_cell_magic)
 import IPython
+from sqlalchemy import create_engine
+from engine_config import driver, username, password, host, port, default_db
+
+engine = create_engine('postgresql://'+username+':'+password+'@'+host+':'+port+'/'+default_db)
+
 js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
 IPython.core.display.display_javascript(js, raw=True)
 
@@ -40,12 +45,6 @@ try:
 except ImportError as e:
     to_table = HTMLTable
     
-# default connection string info here
-driver = 'postgresql'
-username = 'username'
-password = 'password'
-host = 'host'
-port = '5432'
 
 @register_line_cell_magic
 def sql(path, cell=None):
@@ -68,18 +67,25 @@ def sql(path, cell=None):
             glovar = i.split('=')
             exec(glovar[0]+'='+glovar[1]+'=None')
         elif i.startswith('DB'):
-            from sqlalchemy import create_engine
-            db = i.replace('DB=', '')
+            db = i.replace('DB=', '') 
             exec("global engine\nengine=create_engine('"+driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+"')")
             exec('global DB\nDB=db')
+
+            import fileinput
+            import re
+            filepath = '/Users/tdobbins/.ipython/profile_default/startup/engine_config.py'
+            for line in fileinput.FileInput(filepath,inplace=1):
+                line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
+                print line,
         else:
             exec(i)
-            
-    if 'PARAMS' in locals():
-        for i in PARAMS.keys():
-            ref = '%('+i+')s'
-            if ref in cell:
-                cell = cell.replace(ref, ("'"+(str(eval(i)))+"'" if eval(i) != 'null' else 'null'))
+    
+    import re
+    matches = re.findall(r'%\(.*\)s', cell)
+    for m in matches:
+        param = eval(m.replace('%(', '').replace(')s', ''))
+        quotes = '' if isinstance(param, int) else '\''
+        cell = re.sub(re.escape(m), quotes+str(param)+quotes, cell)
 
     data = engine.execute(cell)
     columns = data.keys()
@@ -95,6 +101,6 @@ def sql(path, cell=None):
         df.to_csv(PATH)
 
     if 'MAKE_GLOBAL' in locals():
-        exec('global ' + glovar[1] + '\n' + glovar[1] + '=df')
+        exec('global ' + glovar[1] + '\n' + glovar[1] + '=df if \'RAW\' not in locals() else table_data')
         
     return df
