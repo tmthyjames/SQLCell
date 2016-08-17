@@ -74,7 +74,7 @@ def sql(path, cell=None):
 
             import fileinput
             import re
-            filepath = '/Users/tdobbins/.ipython/profile_default/startup/engine_config.py'
+            filepath = '~/.ipython/profile_default/startup/engine_config.py'
             for line in fileinput.FileInput(filepath,inplace=1):
                 line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
                 print line,
