@@ -63,6 +63,17 @@ And for those few people who have Jupyter but not pandas, I thought about you. I
 will be returned. If not, you'll get a simple HTML table to view the data, without any additional configuration.
 
 ![make_global](images/without_pandas.png?raw=true)
+
+NEW FEATURES as of Aug 16, 2016:
+
+You can now use python variables without the `PARAMS` argument
+
+![make_global](images/remove_PARAMS.png?raw=true)
+
+You can also return the raw RowProxy from SQLAlchemy by setting the RAW argument to `True` and using the `MAKE_GLOBAL`
+argument.
+
+![make_global](images/returnraw.png?raw=true)
     
 And that's it. 
 
