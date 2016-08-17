@@ -1,7 +1,7 @@
 # default connection string info here
 driver = 'postgresql'
-username = 'tdobbins'
-password = 'tdobbins'
+username = 'username'
+password = 'password'
 host = 'localhost'
 port = '5432'
-default_db = 'bls'
+default_db = '' # empty until set by user
