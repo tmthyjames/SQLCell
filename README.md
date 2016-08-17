@@ -7,12 +7,13 @@ use a Jupyter notebook to run queries with as little as
     %%sql
     your query
     
-Just clone the repo and `cp` the file to Jupyter's startup directory:
+Just clone the repo and `cp` the necessary files to Jupyter's startup directory (will update install later):
 
     $ git clone https://github.com/tmthyjames/SQLCell.git
     $ cd SQLCell
     $ cp sqlcell.py ~/.ipython/profile_default/startup/sqlcell.py
     $ cp engine_config.py ~/.ipython/profile_default/startup/engine_config.py
+    $ cp __init__.py ~/.ipython/profile_default/startup/__init__.py
     
 Then in the Jupyter notebook, define your connection variables. You can also input these directly 
 in the engine_config.py (recommended) script so you don't have to add them everytime. Just find the line that says
