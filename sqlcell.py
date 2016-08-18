@@ -1,10 +1,10 @@
-
+import re
+import fileinput
+from os.path import expanduser
 from IPython.core.magic import (register_line_magic, register_cell_magic,
                                 register_line_cell_magic)
 import IPython
 from sqlalchemy import create_engine
-import fileinput
-from os.path import expanduser
 from engine_config import driver, username, password, host, port, default_db
 
 engine = create_engine('postgresql://'+username+':'+password+'@'+host+':'+port+'/'+default_db)
@@ -58,13 +58,14 @@ def sql(path, cell=None):
     input a new argument.
     Args:
         PATH (str): path to write dataframe to in csv.
-        PARAMS (dict): allows SQLAlchemy named parameters.
         MAKE_GLOBAL: make dataframe available globally.
         DB: name of database to connect to.
+        RAW: when used with MAKE_GLOBAL, will return the
+            raw RowProxy from sqlalchemy.
     Returns:
         DataFrame:
     """
-    import re
+
     args = path.split(' ')
     for i in args:
         if i.startswith('MAKE_GLOBAL'):
