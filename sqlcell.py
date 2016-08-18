@@ -9,9 +9,6 @@ from engine_config import driver, username, password, host, port, default_db
 
 engine = create_engine('postgresql://'+username+':'+password+'@'+host+':'+port+'/'+default_db)
 
-js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
-IPython.core.display.display_javascript(js, raw=True)
-
 class HTMLTable(list):
     """
     Creates an HTML table if pandas isn't installed.
@@ -65,7 +62,10 @@ def sql(path, cell=None):
     Returns:
         DataFrame:
     """
-
+    
+    js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
+    IPython.core.display.display_javascript(js, raw=True)
+    
     args = path.split(' ')
     for i in args:
         if i.startswith('MAKE_GLOBAL'):
