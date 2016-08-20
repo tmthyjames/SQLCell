@@ -84,7 +84,7 @@ def sql(path, cell=None):
         else:
             exec(i)
     
-    matches = re.findall(r'%\(.*\)s', cell)
+    matches = re.findall(r'%\([a-zA-Z0-9]+\)s', cell)
     for m in matches:
         param = eval(m.replace('%(', '').replace(')s', ''))
         quotes = '' if isinstance(param, int) else '\''
