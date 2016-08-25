@@ -7,7 +7,7 @@ import IPython
 from sqlalchemy import create_engine
 from engine_config import driver, username, password, host, port, default_db
 
-engine = create_engine('postgresql://'+username+':'+password+'@'+host+':'+port+'/'+default_db)
+engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db)
 
 class HTMLTable(list):
     """
@@ -62,10 +62,47 @@ def sql(path, cell=None):
     Returns:
         DataFrame:
     """
+    global driver, username, password, host, port, db
     
-    js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
-    IPython.core.display.display_javascript(js, raw=True)
+    if cell.strip() == '\d':
+        cell = """
+            SELECT n.nspname as "Schema",
+                c.relname as "Name",
+                CASE c.relkind WHEN 'r' THEN 'table' WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' WHEN 'i' THEN 'index' WHEN 'S' THEN 'sequence' WHEN 's' THEN 'special' WHEN 'f' THEN 'foreign table' END as "Type",
+                pg_catalog.pg_get_userbyid(c.relowner) as "Owner",
+                pg_catalog.pg_size_pretty(pg_catalog.pg_table_size(c.oid)) as "Size",
+                pg_catalog.obj_description(c.oid, 'pg_class') as "Description"
+            FROM pg_catalog.pg_class c
+                LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relkind IN ('r','v','m','S','f','')
+                AND n.nspname <> 'pg_catalog'
+                AND n.nspname <> 'information_schema'
+                AND n.nspname !~ '^pg_toast'
+                AND pg_catalog.pg_table_is_visible(c.oid)
+            ORDER BY 1,2;
+        """
     
+    elif cell.startswith("\d"):
+        table = cell.replace('\d', '').strip()
+        cell = """
+            SELECT a.attname,
+                pg_catalog.format_type(a.atttypid, a.atttypmod),
+                (SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
+                FROM pg_catalog.pg_attrdef d
+                WHERE d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef),
+                a.attnotnull, a.attnum,
+                (SELECT c.collname FROM pg_catalog.pg_collation c, pg_catalog.pg_type t
+                WHERE c.oid = a.attcollation AND t.oid = a.atttypid AND a.attcollation <> t.typcollation) AS attcollation,
+                NULL AS indexdef,
+                NULL AS attfdwoptions,
+                a.attstorage,
+            CASE WHEN a.attstattarget=-1 THEN NULL ELSE a.attstattarget END AS attstattarget, pg_catalog.col_description(a.attrelid, a.attnum)
+            FROM pg_catalog.pg_attribute a
+            JOIN pg_catalog.pg_class c on c.oid = a.attrelid
+            WHERE c.relname = %(table)s AND a.attnum > 0 AND NOT a.attisdropped
+            ORDER BY a.attnum;
+        """
+        
     args = path.split(' ')
     for i in args:
         if i.startswith('MAKE_GLOBAL'):
@@ -78,13 +115,22 @@ def sql(path, cell=None):
 
             home = expanduser("~")
             filepath = home + '/.ipython/profile_default/startup/engine_config.py'
+            
             for line in fileinput.FileInput(filepath,inplace=1):
                 line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
                 print line,
+                
+        elif i.startswith('ENGINE'):
+            exec("global engine\nengine=create_engine("+i.replace('ENGINE=', "")+")")
+            conn_str = engine.url
+            driver, username = conn_str.drivername, conn_str.username
+            password, host = conn_str.password, conn_str.host
+            port, db = conn_str.port, conn_str.database
+            
         else:
             exec(i)
-    
-    matches = re.findall(r'%\([a-zA-Z0-9]+\)s', cell)
+
+    matches = re.findall(r'%\(.*\)s', cell)
     for m in matches:
         param = eval(m.replace('%(', '').replace(')s', ''))
         quotes = '' if isinstance(param, int) else '\''
@@ -107,3 +153,14 @@ def sql(path, cell=None):
         exec('global ' + glovar[1] + '\n' + glovar[1] + '=df if \'RAW\' not in locals() else table_data')
         
     return df
+
+def send_to_client(data, filename=None, key=None):
+    import json
+    filename = filename if filename else 'data.json'
+    key = key if key else 'data'
+    with open('/Users/tdobbins/bidirect/' + filename, 'w') as f:
+        f.write(json.dumps(data))
+    return None
+
+js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
+IPython.core.display.display_javascript(js, raw=True)
