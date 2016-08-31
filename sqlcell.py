@@ -65,7 +65,7 @@ def sql(path, cell=None):
     Returns:
         DataFrame:
     """
-    global driver, username, password, host, port, db
+    global driver, username, password, host, port, db, table
     
     if cell.strip() == '\d':
         cell = """
