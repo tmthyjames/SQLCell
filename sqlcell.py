@@ -5,7 +5,7 @@ from IPython.core.magic import (register_line_magic, register_cell_magic,
                                 register_line_cell_magic)
 import IPython
 from sqlalchemy import create_engine
-from engine_config import driver, username, password, host, port, default_db
+# from engine_config import driver, username, password, host, port, default_db
 
 engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db)
 
@@ -45,6 +45,9 @@ try:
 except ImportError as e:
     to_table = HTMLTable
     
+def build_dict(output, row):
+    output[row.replace('%(','').replace(')s','')] = eval(row.replace('%(','').replace(')s',''))
+    return output
 
 @register_line_cell_magic
 def sql(path, cell=None):
@@ -79,7 +82,7 @@ def sql(path, cell=None):
                 AND n.nspname <> 'information_schema'
                 AND n.nspname !~ '^pg_toast'
                 AND pg_catalog.pg_table_is_visible(c.oid)
-            ORDER BY 1,2;
+            ORDER BY "Type" desc;
         """
     
     elif cell.startswith("\d"):
@@ -114,7 +117,7 @@ def sql(path, cell=None):
             exec('global DB\nDB=db')
 
             home = expanduser("~")
-            filepath = home + '/.ipython/profile_default/startup/engine_config.py'
+            filepath = home + '/.ipython/profile_default/startup/ac_engine_config.py'
             
             for line in fileinput.FileInput(filepath,inplace=1):
                 line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
@@ -131,12 +134,7 @@ def sql(path, cell=None):
             exec(i)
 
     matches = re.findall(r'%\(.*\)s', cell)
-    for m in matches:
-        param = eval(m.replace('%(', '').replace(')s', ''))
-        quotes = '' if isinstance(param, int) else '\''
-        cell = re.sub(re.escape(m), quotes+str(param)+quotes, cell)
-
-    data = engine.execute(cell)
+    data = engine.execute(cell, reduce(build_dict, matches, {}))
     columns = data.keys()
     table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
     df = to_table(table_data)
@@ -164,3 +162,4 @@ def send_to_client(data, filename=None, key=None):
 
 js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
 IPython.core.display.display_javascript(js, raw=True)
+
