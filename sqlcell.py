@@ -124,11 +124,13 @@ def sql(path, cell=None):
                 print line,
                 
         elif i.startswith('ENGINE'):
-            exec("global engine\nengine=create_engine("+i.replace('ENGINE=', "")+")")
-            conn_str = engine.url
-            driver, username = conn_str.drivername, conn_str.username
-            password, host = conn_str.password, conn_str.host
-            port, db = conn_str.port, conn_str.database
+            exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
+            if ENGINE != str(engine.url):
+                exec("global engine\nengine=create_engine("+i.replace('ENGINE=', "")+")")
+                conn_str = engine.url
+                driver, username = conn_str.drivername, conn_str.username
+                password, host = conn_str.password, conn_str.host
+                port, db = conn_str.port, conn_str.database
             
         else:
             exec(i)
