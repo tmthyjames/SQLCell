@@ -133,7 +133,7 @@ def sql(path, cell=None):
         else:
             exec(i)
 
-    matches = re.findall(r'%\(.*\)s', cell)
+    matches = re.findall(r'%\([A-Za-z]*\)s', cell)
     data = engine.execute(cell, reduce(build_dict, matches, {}))
     columns = data.keys()
     table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
