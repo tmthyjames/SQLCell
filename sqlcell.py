@@ -152,7 +152,7 @@ def sql(path, cell=None):
     if 'MAKE_GLOBAL' in locals():
         exec('global ' + glovar[1] + '\n' + glovar[1] + '=df if \'RAW\' not in locals() else table_data')
         
-    return df
+    return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
 
 def send_to_client(data, filename=None, key=None):
     import json
