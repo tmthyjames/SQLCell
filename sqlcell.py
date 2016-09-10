@@ -153,14 +153,7 @@ def sql(path, cell=None):
         exec('global ' + glovar[1] + '\n' + glovar[1] + '=df if \'RAW\' not in locals() else table_data')
         
     return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
-
-def send_to_client(data, filename=None, key=None):
-    import json
-    filename = filename if filename else 'data.json'
-    key = key if key else 'data'
-    with open('/Users/tdobbins/bidirect/' + filename, 'w') as f:
-        f.write(json.dumps(data))
-    return None
+    
 
 js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
 IPython.core.display.display_javascript(js, raw=True)
