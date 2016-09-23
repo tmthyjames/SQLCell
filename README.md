@@ -1,3 +1,11 @@
+*** UPDATE ***
+
+Introducing buttons!
+
+![lots_of_buttons](images/buttons.png?raw=true)
+
+Buttons include Running Explain Analyze on your query, executing query, executing query and returning SQLAlchemy results in a variable, saving to a TSV, stopping query, and swithcing between user-defined engines.
+
 # SQLCell
 Uses Jupyter magic function to run SQL queries in Jupyter Notebook. <a href="https://gist.github.com/tmthyjames/1366b21d0efffb73f1a91361a25b9a55">Blog post here</a>.
 
