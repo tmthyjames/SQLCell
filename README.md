@@ -21,6 +21,7 @@ Just clone the repo and `cp` the necessary files to Jupyter's startup directory 
     $ cd SQLCell
     $ cp sqlcell.py ~/.ipython/profile_default/startup/sqlcell.py
     $ cp engine_config.py ~/.ipython/profile_default/startup/engine_config.py
+    $ cp engines.py ~/.ipython/profile_default/startup/engines.py
     $ cp __init__.py ~/.ipython/profile_default/startup/__init__.py
     
 Then in the Jupyter notebook, define your connection variables. You can also input these directly 
