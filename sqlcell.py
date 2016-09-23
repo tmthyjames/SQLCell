@@ -1,13 +1,28 @@
 import re
 import fileinput
+import time
+import uuid
+import json
 from os.path import expanduser
 from IPython.core.magic import (register_line_magic, register_cell_magic,
                                 register_line_cell_magic)
 import IPython
+from IPython.display import Javascript
+from IPython.core.display import display, HTML
 from sqlalchemy import create_engine
-# from engine_config import driver, username, password, host, port, default_db
+from ac_engine_config import driver, username, password, host, port, default_db
+from ae_engines import __ENGINES_JSON__
 
-engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db)
+
+unique_db_id = str(uuid.uuid4())
+application_name = '?application_name=jupyter' + unique_db_id
+
+for k,v in __ENGINES_JSON__.iteritems():
+    exec(k+'="'+v['engine']+'"')
+
+__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)
+
+engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db+application_name)
 
 class HTMLTable(list):
     """
@@ -15,9 +30,9 @@ class HTMLTable(list):
     The .empty attribute takes the place of df.empty,
     and to_csv takes the place of df.to_csv.
     """
-    
+
     empty = []
-    
+
     def _repr_html_(self):
         table = '<table width=100%>'
         thead = '<thead><tr>'
@@ -37,20 +52,32 @@ class HTMLTable(list):
         with open(path, 'w') as fp:
             a = csv.writer(fp, delimiter=',')
             a.writerows(self)
-    
+
 try:
     import pandas as pd
     pd.options.display.max_columns = None
+    pd.set_option('display.max_colwidth', -1)
+#     pd.set_option('display.max_rows', 500)
     to_table = pd.DataFrame
 except ImportError as e:
     to_table = HTMLTable
-    
+
+def timer(func):
+    import time
+    def wrapper(*args, **kwargs):
+        t0 = time.time()
+        output = func(*args, **kwargs)
+        t1 = time.time() - t0
+        print("Time to run: {t1:f} ms".format(t1=t1*1000))
+        return output
+    return wrapper
+
 def build_dict(output, row):
     output[row.replace('%(','').replace(')s','')] = eval(row.replace('%(','').replace(')s',''))
     return output
 
-@register_line_cell_magic
-def sql(path, cell=None):
+# @timer
+def _SQL(path, cell):
     """
     Create magic cell function to treat cell text as SQL
     to remove the need of third party SQL interfaces. The 
@@ -65,7 +92,139 @@ def sql(path, cell=None):
     Returns:
         DataFrame:
     """
-    global driver, username, password, host, port, db, table
+    global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine, PATH
+    
+    unique_id = str(uuid.uuid4())
+
+    display(
+        HTML(
+            '''
+            <div class="row">
+                <div class="btn-group col-md-3">
+                    <button id="explain" title="Explain Analyze" onclick="explain()" type="button" class="btn btn-info btn-sm"><p class="fa fa-info-circle"</p></button>
+                    <button type="button" title="Execute" onclick="run()" class="btn btn-success btn-sm"><p class="fa fa-play"></p></button>
+                    <button type="button" title="Execute and Return Data as Variable" onclick="getData()" class="btn btn-success btn-sm"><p class="">var</p></button>
+                    <button id="saveData'''+unique_id+'''" title="Save" class="btn btn-success btn-sm disabled" type="button"><p class="fa fa-save"</p></button>
+                    <button id="cancelQuery'''+unique_id+'''" title="Cancel Query" class="btn btn-danger btn-sm" type="button"><p class="fa fa-stop"</p></button>
+                </div>
+                <div id="engineButtons'''+unique_id+'''" class="btn-group col-md-5"></div>
+            </div>
+            <script type="text/Javascript">
+            
+                var engines = JSON.parse(`'''+str(__ENGINES_JSON_DUMPS__)+'''`);
+                
+                var sortedEngineKeys = Object.keys(engines).sort(function(a,b){
+                    return engines[a].order - engines[b].order;
+                });
+                
+                var sortedEngines = sortedEngineKeys.reduce(function(output, row, idx){
+                    engines[row]['key'] = row;
+                    output.push(engines[row]);
+                    return output;
+                }, []);
+                
+                var engineButtons = '';
+                for (var engine in sortedEngines){
+                    var engineKey = sortedEngines[engine].key;
+                    var warningLabel = sortedEngines[engine].caution_level;
+                    engineButtons += '<button title="Switch Engine" onclick="switchEngines('+"'"+engineKey+"'"+')" class="btn btn-'+warningLabel+' btn-sm">'+engineKey+'</button>';
+                };
+                
+               $("#engineButtons'''+unique_id+'''").append(engineButtons);
+               
+               $("#cancelQuery'''+unique_id+'''").on('click', function(){
+                   if ($("#cancelQuery'''+unique_id+'''").hasClass('disabled')){
+                       console.log('alread stopped or finished query...');
+                   } else {
+                       cancelQuery("'''+unique_db_id+'''");
+                       //$("#cancelQuery'''+unique_id+'''").addClass('disabled')
+                   }
+               });
+            
+                function explain(){
+                    var command =  `global __EXPLAIN__\n__EXPLAIN__ = True`;
+                    var kernel = IPython.notebook.kernel;
+                    kernel.execute(command);
+                    IPython.notebook.execute_cell();
+                };
+                
+                function run(){
+                    IPython.notebook.execute_cell();
+                    $.get('/api/contents', function(data){
+                        console.log(data);
+                    });
+                };
+                
+                function cancelQuery(applicationID){
+                    $.get('/api/contents?kill_last_postgres_process=jupyter'+applicationID+'&engine=localhost', function(d){
+                        console.log(d);
+                    });
+                };
+                
+                function getData(){
+                    var command = `global __GETDATA__ \n__GETDATA__ = True`;
+                    var kernel = IPython.notebook.kernel;
+                    kernel.execute(command);
+                    IPython.notebook.execute_cell();
+                };
+                
+                function saveData(data, filename){
+                    var path = $('#path').val();
+                    var command = `global __SAVEDATA__ \n__SAVEDATA__, PATH = True,'`+path+`'`;
+                    var kernel = IPython.notebook.kernel;
+                    kernel.execute(command);
+                    //IPython.notebook.execute_cell();
+                    
+                    function download(data, filename, type) {
+                        var a = document.createElement("a"),
+                            file = new Blob([data], {type: type});
+                        if (window.navigator.msSaveOrOpenBlob) // IE10+
+                            window.navigator.msSaveOrOpenBlob(file, filename);
+                        else { // Others
+                            var url = URL.createObjectURL(file);
+                            a.href = url;
+                            a.download = filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            setTimeout(function() {
+                                document.body.removeChild(a);
+                                window.URL.revokeObjectURL(url);  
+                            }, 0); 
+                        }
+                    }
+                    
+                    download(data, filename, 'csv');
+                    
+                };
+                
+                function switchEngines(engine){
+                    var command = `global ENGINE \nENGINE = eval('` + engine + `')`;
+                    var kernel = IPython.notebook.kernel;
+                    kernel.execute(command);
+                    IPython.notebook.execute_cell();
+                };
+                
+            </script>
+            '''
+        )
+    )
+    
+    if '__EXPLAIN__' in globals() and __EXPLAIN__:
+        cell = 'EXPLAIN ANALYZE ' + cell
+        __EXPLAIN__ = False
+        
+    elif '__GETDATA__' in globals() and __GETDATA__:
+        if 'MAKE_GLOBAL' not in path:
+            path = 'MAKE_GLOBAL=DATA RAW=True ' + path.strip()
+            print 'data available as DATA'
+        __GETDATA__ = False
+    
+    elif '__SAVEDATA__' in globals() and __SAVEDATA__:
+        path = 'PATH="'+PATH+'" '+path
+        __SAVEDATA__ = PATH = False
+        
+    elif 'ENGINE' in globals() and ENGINE:
+        engine = create_engine(ENGINE+application_name)
     
     if cell.strip() == '\d':
         cell = """
@@ -84,7 +243,7 @@ def sql(path, cell=None):
                 AND pg_catalog.pg_table_is_visible(c.oid)
             ORDER BY "Type" desc;
         """
-    
+
     elif cell.startswith("\d"):
         table = cell.replace('\d', '').strip()
         cell = """
@@ -105,7 +264,7 @@ def sql(path, cell=None):
             WHERE c.relname = %(table)s AND a.attnum > 0 AND NOT a.attisdropped
             ORDER BY a.attnum;
         """
-        
+
     args = path.split(' ')
     for i in args:
         if i.startswith('MAKE_GLOBAL'):
@@ -113,48 +272,82 @@ def sql(path, cell=None):
             exec(glovar[0]+'='+glovar[1]+'=None')
         elif i.startswith('DB'):
             db = i.replace('DB=', '') 
-            exec("global engine\nengine=create_engine('"+driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+"')")
+            exec("global engine\nengine=create_engine('"+driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name+"')")
             exec('global DB\nDB=db')
 
             home = expanduser("~")
             filepath = home + '/.ipython/profile_default/startup/ac_engine_config.py'
-            
+
             for line in fileinput.FileInput(filepath,inplace=1):
                 line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
                 print line,
-                
+
         elif i.startswith('ENGINE'):
             exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
             if ENGINE != str(engine.url):
-                exec("global engine\nengine=create_engine("+i.replace('ENGINE=', "")+")")
+                exec("global engine\nengine=create_engine("+i.replace('ENGINE=', "")+application_name+")")
                 conn_str = engine.url
                 driver, username = conn_str.drivername, conn_str.username
                 password, host = conn_str.password, conn_str.host
                 port, db = conn_str.port, conn_str.database
-            
+
         else:
             exec(i)
 
     matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s', cell)
+    t0 = time.time()
     data = engine.execute(cell, reduce(build_dict, matches, {}))
+    t1 = time.time() - t0
+    t2 = time.time()
     columns = data.keys()
     table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
     df = to_table(table_data)
-    
+    data.close()
+
     if df.empty:
         return 'No data available'
-    
+
     df.columns = columns
 
-    if 'PATH' in locals():
-        df.to_csv(PATH)
+    if 'PATH' in globals() and PATH:
+        try:
+            df.to_csv(PATH)
+        except IOError as e:
+            print 'ATTENTION:', e
+            return None
 
     if 'MAKE_GLOBAL' in locals():
         exec('global ' + glovar[1] + '\n' + glovar[1] + '=df if \'RAW\' not in locals() else table_data')
         
-    return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
+    data = df.values.tolist()
+    str_data = '\t'.join(columns) + '\n'
+    for d in data:
+        str_data += '\t'.join([str(i) for i in d]) + '\n'
     
+    display(
+        Javascript(
+            """
+                $('#saveData"""+unique_id+"""').removeClass('disabled');
+                $("#cancelQuery"""+unique_id+"""").addClass('disabled')
+
+                $('#saveData"""+unique_id+"""').on('click', function(){
+                    if (!$(this).hasClass('disabled')){
+                        saveData(`"""+str_data+"""`, 'test.tsv');
+                    }
+                });
+            """
+        )
+    )
+    
+    t3 = time.time() - t2
+    print 'Time to execute: ' + str(t1*1000) + ' ms', ' | ', 'Time to render: ' + str(t3*1000) + ' ms', ' | ', 'Engine:', str(engine.url)
+    return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
+
+
+@register_line_cell_magic
+def sql(path, cell):
+    return _SQL(path, cell)
+
 
 js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
 IPython.core.display.display_javascript(js, raw=True)
-
