@@ -10,8 +10,8 @@ import IPython
 from IPython.display import Javascript
 from IPython.core.display import display, HTML
 from sqlalchemy import create_engine
-from ac_engine_config import driver, username, password, host, port, default_db
-from ae_engines import __ENGINES_JSON__
+from engine_config import driver, username, password, host, port, default_db
+from engines import __ENGINES_JSON__
 
 
 unique_db_id = str(uuid.uuid4())
