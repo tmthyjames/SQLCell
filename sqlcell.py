@@ -9,7 +9,7 @@ from IPython.core.magic import (register_line_magic, register_cell_magic,
 import IPython
 from IPython.display import Javascript
 from IPython.core.display import display, HTML
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, exc
 from engine_config import driver, username, password, host, port, default_db
 from engines import __ENGINES_JSON__
 
@@ -296,9 +296,21 @@ def _SQL(path, cell):
 
     matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s', cell)
     t0 = time.time()
-    data = engine.execute(cell, reduce(build_dict, matches, {}))
+    
+    try:
+        data = engine.execute(cell, reduce(build_dict, matches, {}))
+    except exc.OperationalError as e:
+        display(
+            Javascript("""
+            $("#cancelQuery"""+unique_id+"""").addClass('disabled')
+            """)
+        )
+        print 'Query cancelled...'
+        return None
+    
     t1 = time.time() - t0
     t2 = time.time()
+    
     columns = data.keys()
     table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
     df = to_table(table_data)
