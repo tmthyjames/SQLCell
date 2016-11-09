@@ -1,3 +1,9 @@
+*** UPDATE *** 11/08/2016
+
+Introducing inline editing
+
+![inline editing](images/Screen Shot 2016-11-08 at 8.32.56 PM.png)
+
 *** UPDATE ***
 
 Introducing buttons!
