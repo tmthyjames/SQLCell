@@ -11,8 +11,8 @@ import IPython
 from IPython.display import Javascript
 from IPython.core.display import display, HTML
 from sqlalchemy import create_engine, exc
-from ac_engine_config import driver, username, password, host, port, default_db
-from ae_engines import __ENGINES_JSON__
+from engine_config import driver, username, password, host, port, default_db
+from engines import __ENGINES_JSON__
 
 
 unique_db_id = str(uuid.uuid4())
@@ -419,9 +419,23 @@ def _SQL(path, cell):
                             var SQLText = "UPDATE " + tableName + " SET " + columnName + " = '" + newValue + "' WHERE " + primary_key + " = " + pkValue;
                             console.log(SQLText);
 
-                            IPython.notebook.kernel.execute('update_table("'+SQLText+'")');
+                            IPython.notebook.kernel.execute('update_table("'+SQLText+'")',
+                                {
+                                    iopub: {
+                                        output: function(response) {
+                                            var error = response.content.evalue.replace(/\\n/g, "</br>");
+                                            $('#table%s').parent().append('<h5 style="color:#d9534f;">'+error+'</h5>');
+                                        }
+                                    }
+                                },
+                                {
+                                    silent: false, 
+                                    store_history: false, 
+                                    stop_on_error: true
+                                }
+                            );
                         });
-                        """ % (unique_id, unique_id, unique_id, table_name, primary_key, unique_id, unique_id)
+                        """ % (unique_id, unique_id, unique_id, table_name, primary_key, unique_id, unique_id, unique_id)
                     )
                 )
                 if update_dict:
