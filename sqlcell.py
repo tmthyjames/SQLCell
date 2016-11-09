@@ -420,7 +420,6 @@ def _SQL(path, cell):
                             console.log(SQLText);
 
                             IPython.notebook.kernel.execute('update_table("'+SQLText+'")');
-                            //IPython.notebook.kernel.execute('trans.commit()');
                         });
                         """ % (unique_id, unique_id, unique_id, table_name, primary_key, unique_id, unique_id)
                     )
