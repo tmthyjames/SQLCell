@@ -3,6 +3,7 @@ import fileinput
 import time
 import uuid
 import json
+import subprocess
 from os.path import expanduser
 from IPython.core.magic import (register_line_magic, register_cell_magic,
                                 register_line_cell_magic)
@@ -10,8 +11,8 @@ import IPython
 from IPython.display import Javascript
 from IPython.core.display import display, HTML
 from sqlalchemy import create_engine, exc
-from engine_config import driver, username, password, host, port, default_db
-from engines import __ENGINES_JSON__
+from ac_engine_config import driver, username, password, host, port, default_db
+from ae_engines import __ENGINES_JSON__
 
 
 unique_db_id = str(uuid.uuid4())
@@ -23,6 +24,11 @@ for k,v in __ENGINES_JSON__.iteritems():
 __ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)
 
 engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db+application_name)
+EDIT = False
+
+class QUERY(object):
+	raw = ''
+	history = []
 
 class HTMLTable(list):
     """
@@ -31,13 +37,17 @@ class HTMLTable(list):
     and to_csv takes the place of df.to_csv.
     """
 
+    def __init__(self, data, id_):
+        self.id_ = id_
+        self.data = data
+
     empty = []
 
     def _repr_html_(self):
-        table = '<table width=100%>'
+        table = '<table id="table'+self.id_+'" width=100%>'
         thead = '<thead><tr>'
-        tbody = '<tbody><tr>'
-        for n,row in enumerate(self):
+        tbody = '<tbody>'
+        for n,row in enumerate(self.data):
             if n == 0:
                 thead += ''.join([('<th>' + str(r) + '</th>') for r in row])
             else:
@@ -51,7 +61,7 @@ class HTMLTable(list):
         import csv
         with open(path, 'w') as fp:
             a = csv.writer(fp, delimiter=',')
-            a.writerows(self)
+            a.writerows(self.data)
 
 try:
     import pandas as pd
@@ -76,6 +86,10 @@ def build_dict(output, row):
     output[row.replace('%(','').replace(')s','')] = eval(row.replace('%(','').replace(')s',''))
     return output
 
+def update_table(sql):
+    engine.execute(sql)
+    return None
+
 # @timer
 def _SQL(path, cell):
     """
@@ -93,13 +107,25 @@ def _SQL(path, cell):
         DataFrame:
     """
     global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine, PATH
-    
     unique_id = str(uuid.uuid4())
 
     display(
         HTML(
             '''
-            <div class="row">
+            <style>
+            .input { 
+                position:relative; 
+            }
+            #childDiv'''+unique_id+''' { 
+                width: 90%;
+                position:absolute; 
+            }
+            #dummy'''+unique_id+''' {
+                height:25px;
+            }
+            </style>
+            <div id="dummy'''+unique_id+'''"</div>
+            <div class="row" id="childDiv'''+unique_id+'''">
                 <div class="btn-group col-md-3">
                     <button id="explain" title="Explain Analyze" onclick="explain()" type="button" class="btn btn-info btn-sm"><p class="fa fa-info-circle"</p></button>
                     <button type="button" title="Execute" onclick="run()" class="btn btn-success btn-sm"><p class="fa fa-play"></p></button>
@@ -156,7 +182,7 @@ def _SQL(path, cell):
                 };
                 
                 function cancelQuery(applicationID){
-                    $.get('/api/contents?kill_last_postgres_process=jupyter'+applicationID+'&engine=localhost', function(d){
+                    $.get('/halt_query?kill_last_postgres_process=jupyter'+applicationID+'&engine=localhost', function(d){
                         console.log(d);
                     });
                 };
@@ -224,46 +250,12 @@ def _SQL(path, cell):
         __SAVEDATA__ = PATH = False
         
     elif 'ENGINE' in globals() and ENGINE:
-        engine = create_engine(ENGINE+application_name)
+        engine = create_engine(ENGINE)
     
-    if cell.strip() == '\d':
-        cell = """
-            SELECT n.nspname as "Schema",
-                c.relname as "Name",
-                CASE c.relkind WHEN 'r' THEN 'table' WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' WHEN 'i' THEN 'index' WHEN 'S' THEN 'sequence' WHEN 's' THEN 'special' WHEN 'f' THEN 'foreign table' END as "Type",
-                pg_catalog.pg_get_userbyid(c.relowner) as "Owner",
-                pg_catalog.pg_size_pretty(pg_catalog.pg_table_size(c.oid)) as "Size",
-                pg_catalog.obj_description(c.oid, 'pg_class') as "Description"
-            FROM pg_catalog.pg_class c
-                LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-            WHERE c.relkind IN ('r','v','m','S','f','')
-                AND n.nspname <> 'pg_catalog'
-                AND n.nspname <> 'information_schema'
-                AND n.nspname !~ '^pg_toast'
-                AND pg_catalog.pg_table_is_visible(c.oid)
-            ORDER BY "Type" desc;
-        """
-
-    elif cell.startswith("\d"):
-        table = cell.replace('\d', '').strip()
-        cell = """
-            SELECT a.attname,
-                pg_catalog.format_type(a.atttypid, a.atttypmod),
-                (SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
-                FROM pg_catalog.pg_attrdef d
-                WHERE d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef),
-                a.attnotnull, a.attnum,
-                (SELECT c.collname FROM pg_catalog.pg_collation c, pg_catalog.pg_type t
-                WHERE c.oid = a.attcollation AND t.oid = a.atttypid AND a.attcollation <> t.typcollation) AS attcollation,
-                NULL AS indexdef,
-                NULL AS attfdwoptions,
-                a.attstorage,
-            CASE WHEN a.attstattarget=-1 THEN NULL ELSE a.attstattarget END AS attstattarget, pg_catalog.col_description(a.attrelid, a.attnum)
-            FROM pg_catalog.pg_attribute a
-            JOIN pg_catalog.pg_class c on c.oid = a.attrelid
-            WHERE c.relname = %(table)s AND a.attnum > 0 AND NOT a.attisdropped
-            ORDER BY a.attnum;
-        """
+    psql_command = False
+    if cell.startswith('\\'):
+        psql_command = True
+        pg = ['psql', db, '-c', cell.strip(), '-H']
 
     args = path.split(' ')
     for i in args:
@@ -295,26 +287,36 @@ def _SQL(path, cell):
             exec(i)
 
     matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s', cell)
-    t0 = time.time()
     
+    t0 = time.time()
+    connection = engine.connect()
+
     try:
-        data = engine.execute(cell, reduce(build_dict, matches, {}))
+        if not psql_command:
+            data = connection.execute(cell, reduce(build_dict, matches, {}))
+            columns = data.keys()
+            table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
+            df = to_table(table_data)
+        else:
+            output = subprocess.check_output(pg)
+            data = pd.read_html(output, header=0)[0]
+            columns = data.keys()
+            table_data = [i for i in data.values.tolist()]
+            df = data
     except exc.OperationalError as e:
-        display(
-            Javascript("""
-            $("#cancelQuery"""+unique_id+"""").addClass('disabled')
-            """)
-        )
         print 'Query cancelled...'
+        return None
+    except exc.ResourceClosedError as e:
+        print 'Query ran successfully...'
         return None
     
     t1 = time.time() - t0
     t2 = time.time()
+
+    QUERY.raw = (cell, t1)
+    QUERY.history.append((cell, t1))
     
     columns = data.keys()
-    table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
-    df = to_table(table_data)
-    data.close()
 
     if df.empty:
         return 'No data available'
@@ -350,10 +352,92 @@ def _SQL(path, cell):
             """
         )
     )
-    
+
     t3 = time.time() - t2
-    print 'Time to execute: ' + str(t1*1000) + ' ms', ' | ', 'Time to render: ' + str(t3*1000) + ' ms', ' | ', 'Engine:', str(engine.url)
-    return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
+    print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
+    print 'To render: ' + str(round(t3, 3)) + ' sec', '|', 
+    print 'Rows:', len(df.index), '|',
+    print 'DB:', engine.url.database, '| Host:', engine.url.host,
+
+    table_name = re.search('from\s*([a-z]{,})', cell, re.IGNORECASE)
+    table_name = None if not table_name else table_name.group(1).strip()
+
+    if EDIT:
+
+        primary_key_results = engine.execute("""
+                SELECT               
+                  %(table_name)s as table_name, pg_attribute.attname as column_name
+                FROM pg_index, pg_class, pg_attribute, pg_namespace 
+                WHERE 
+                  pg_class.oid = %(table_name)s::regclass AND 
+                  indrelid = pg_class.oid AND 
+                  nspname = 'public' AND 
+                  pg_class.relnamespace = pg_namespace.oid AND 
+                  pg_attribute.attrelid = pg_class.oid AND 
+                  pg_attribute.attnum = any(pg_index.indkey)
+                 AND indisprimary
+             """, {'table_name': table_name}).first()
+
+        if primary_key_results:
+            primary_key = primary_key_results.column_name
+
+            update_dict = None
+            if not re.search('join', cell, re.IGNORECASE):
+                print '| EDIT MODE:', table_name
+
+                display(
+                    HTML(
+                        HTMLTable([columns] + table_data, unique_id)._repr_html_()
+                    )
+                )
+                display(
+                    Javascript(
+                        """
+                        $('#table%s').editableTableWidget();
+                        $('#table%s').on('change', function(evt, newValue){
+                            var th = $('#table%s th').eq(evt.target.cellIndex);
+                            var columnName = th.text();
+
+                            var tableName = '%s';
+                            var primary_key = '%s';
+
+                            var pkId,
+                                pkValue;
+                            $('#table%s tr th').filter(function(i,v){
+                                if (v.innerHTML == primary_key){
+                                    pkId = i;
+                                }
+                            });
+
+                            var row = $('#table%s > tbody > tr').eq(evt.target.parentNode.rowIndex-1);
+                            row.find('td').each(function(i,v){
+                                if (i == pkId){
+                                    pkValue = v.innerHTML;
+                                }
+                            });
+
+                            var SQLText = "UPDATE " + tableName + " SET " + columnName + " = '" + newValue + "' WHERE " + primary_key + " = " + pkValue;
+                            console.log(SQLText);
+
+                            IPython.notebook.kernel.execute('update_table("'+SQLText+'")');
+                            //IPython.notebook.kernel.execute('trans.commit()');
+                        });
+                        """ % (unique_id, unique_id, unique_id, table_name, primary_key, unique_id, unique_id)
+                    )
+                )
+                if update_dict:
+                    print update_dict
+                return None
+
+            else:
+                print '| CAN\'T EDIT MULTIPLE TABLES'
+                return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
+        else:
+            print '| TABLE HAS NO PK'
+            return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
+    else:
+        print '| READ MODE'
+        return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
 
 
 @register_line_cell_magic
