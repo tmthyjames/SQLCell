@@ -4,19 +4,23 @@ import time
 import uuid
 import json
 import subprocess
+import sys
+import threading
+import Queue
+from contextlib import contextmanager
 from os.path import expanduser
-from IPython.core.magic import (register_line_magic, register_cell_magic,
-                                register_line_cell_magic)
+from IPython.core.magic import register_line_cell_magic
 import IPython
 from IPython.display import Javascript
 from IPython.core.display import display, HTML
 from sqlalchemy import create_engine, exc
-from engine_config import driver, username, password, host, port, default_db
-from engines import __ENGINES_JSON__
+from sqlcell.ac_engine_config import driver, username, password, host, port, default_db
+from sqlcell.ae_engines import __ENGINES_JSON__
 
 
 unique_db_id = str(uuid.uuid4())
-application_name = '?application_name=jupyter' + unique_db_id
+jupyter_id = 'jupyter' + unique_db_id
+application_name = '?application_name='+jupyter_id
 
 for k,v in __ENGINES_JSON__.iteritems():
     exec(k+'="'+v['engine']+'"')
@@ -27,8 +31,8 @@ engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+
 EDIT = False
 
 class QUERY(object):
-	raw = ''
-	history = []
+    raw = ''
+    history = []
 
 class HTMLTable(list):
     """
@@ -43,19 +47,34 @@ class HTMLTable(list):
 
     empty = []
 
-    def _repr_html_(self):
+    def _repr_html_(self, n_rows=100):
         table = '<table id="table'+self.id_+'" width=100%>'
         thead = '<thead><tr>'
         tbody = '<tbody>'
         for n,row in enumerate(self.data):
             if n == 0:
-                thead += ''.join([('<th>' + str(r) + '</th>') for r in row])
+                thead += '<th>' + ' ' + '</th>' ''.join([('<th>' + str(r) + '</th>') for r in row])
+            elif n > n_rows:
+                break
             else:
-                tbody += '<tr>' + ''.join([('<td>' + str(r) + '</td>') for r in row]) + '</tr>'
+                tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td>' + str(r).replace('  ', '&nbsp;&nbsp;&nbsp;') + '</td>') for r in row]) + '</tr>'
+        # tbody += '<tr style="height:40px;">' + ''.join([('<td></td>') for r in row]) + '</tr>' # for adding new row
         thead += '</tr></thead>'
         tbody += '</tbody>'
         table += thead + tbody
         return table
+
+    def display(self, columns=[], msg=None):
+        table_str = HTMLTable([columns] + self.data, self.id_)._repr_html_(n_rows=100)
+        table_str = table_str.replace('<table', '<table class="table-striped table-hover"').replace("'", "\\'")
+        display(
+            Javascript(
+                """
+                $('#dbinfo{id}').append('{msg}');
+                $('#table{id}').append('{table}');
+                """.format(msg=str(msg), table=table_str, id=self.id_)
+            )
+        )
 
     def to_csv(self, path):
         import csv
@@ -72,6 +91,26 @@ try:
 except ImportError as e:
     to_table = HTMLTable
 
+# we need a lock, so that other threads don't snatch control
+# while we have set a temporary parent # from: http://nbviewer.jupyter.org/gist/minrk/4563193
+
+@contextmanager
+def set_stdout_parent(parent):
+    """a context manager for setting a particular parent for sys.stdout
+    
+    the parent determines the destination cell of output
+    """
+    stdout_lock = threading.Lock()
+    save_parent = sys.stdout.parent_header
+    with stdout_lock:
+        sys.stdout.parent_header = parent
+        try:
+            yield
+        finally:
+            # the flush is important, because that's when the parent_header actually has its effect
+            sys.stdout.flush()
+            sys.stdout.parent_header = save_parent
+
 def timer(func):
     import time
     def wrapper(*args, **kwargs):
@@ -87,11 +126,53 @@ def build_dict(output, row):
     return output
 
 def update_table(sql):
-    engine.execute(sql)
-    return None
+    return engine.execute(sql)
+
+def kill_last_pid(app=None, db=None):
+    from sqlalchemy import create_engine    
+
+    connection = create_engine("postgresql://tdobbins:tdobbins@localhost:5432/"+db+"?application_name=garbage_collection")
+    try:
+        pid_sql = """
+            SELECT pid 
+            FROM pg_stat_activity 
+            where application_name = %(app)s
+            """
+        pids = [i.pid for i in connection.execute(pid_sql, {
+                'app': app
+            }
+        )]
+        for pid in pids:
+            cancel_sql = "select pg_cancel_backend(%(pid)s);"
+            cancel_execute = [i for i in connection.execute(cancel_sql, {
+                    'pid': pid
+                }
+            )]
+            print 'cancelled postgres job:', pid, 'application: ', app
+
+        return True
+
+    except Exception as e:
+        print e
+        return False
+
+    finally:
+        print 'closing DB connection....'
+        connection.dispose()
+
+    return True
+
+def kill_last_pid_on_new_thread(app, db, unique_id):
+    t = threading.Thread(target=kill_last_pid, args=(app, db))
+    t.start()
+    HTMLTable([], unique_id).display(msg='<h5 id="error" style="color:#d9534f;">QUERY DEAD...</h5>')
+    return True
+
+def new_queue():
+    return Queue.Queue()
 
 # @timer
-def _SQL(path, cell):
+def _SQL(path, cell, thread_parent=None):
     """
     Create magic cell function to treat cell text as SQL
     to remove the need of third party SQL interfaces. The 
@@ -108,6 +189,7 @@ def _SQL(path, cell):
     """
     global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine, PATH
     unique_id = str(uuid.uuid4())
+    thread_parent = sys.stdout.parent_header
 
     display(
         HTML(
@@ -120,11 +202,10 @@ def _SQL(path, cell):
                 width: 90%;
                 position:absolute; 
             }
-            #dummy'''+unique_id+''' {
-                height:25px;
+            #table'''+unique_id+'''{
+                padding-top: 40px;
             }
             </style>
-            <div id="dummy'''+unique_id+'''"</div>
             <div class="row" id="childDiv'''+unique_id+'''">
                 <div class="btn-group col-md-3">
                     <button id="explain" title="Explain Analyze" onclick="explain()" type="button" class="btn btn-info btn-sm"><p class="fa fa-info-circle"</p></button>
@@ -133,8 +214,10 @@ def _SQL(path, cell):
                     <button id="saveData'''+unique_id+'''" title="Save" class="btn btn-success btn-sm disabled" type="button"><p class="fa fa-save"</p></button>
                     <button id="cancelQuery'''+unique_id+'''" title="Cancel Query" class="btn btn-danger btn-sm" type="button"><p class="fa fa-stop"</p></button>
                 </div>
-                <div id="engineButtons'''+unique_id+'''" class="btn-group col-md-5"></div>
+                <div id="engineButtons'''+unique_id+'''" class="btn-group col-md-4"></div>
+                <div id="tableData'''+unique_id+'''"></div>
             </div>
+            <div class="table" id="table'''+unique_id+'''"></div>
             <script type="text/Javascript">
             
                 var engines = JSON.parse(`'''+str(__ENGINES_JSON_DUMPS__)+'''`);
@@ -182,9 +265,21 @@ def _SQL(path, cell):
                 };
                 
                 function cancelQuery(applicationID){
-                    $.get('/halt_query?kill_last_postgres_process=jupyter'+applicationID+'&engine=localhost', function(d){
-                        console.log(d);
-                    });
+                    IPython.notebook.kernel.execute('kill_last_pid_on_new_thread(jupyter_id, db, "'''+unique_id+'''")',
+                        {
+                            iopub: {
+                                output: function(response) {
+                                    var $table = $("#table'''+unique_id+'''").parent();
+                                    console.log(response);
+                                }
+                            }
+                        },
+                        {
+                            silent: false, 
+                            store_history: false, 
+                            stop_on_error: true
+                        }
+                    );
                 };
                 
                 function getData(){
@@ -229,7 +324,7 @@ def _SQL(path, cell):
                     kernel.execute(command);
                     IPython.notebook.execute_cell();
                 };
-                
+
             </script>
             '''
         )
@@ -242,7 +337,8 @@ def _SQL(path, cell):
     elif '__GETDATA__' in globals() and __GETDATA__:
         if 'MAKE_GLOBAL' not in path:
             path = 'MAKE_GLOBAL=DATA RAW=True ' + path.strip()
-            print 'data available as DATA'
+            with set_stdout_parent(thread_parent):
+                print 'data available as DATA'
         __GETDATA__ = False
     
     elif '__SAVEDATA__' in globals() and __SAVEDATA__:
@@ -251,11 +347,6 @@ def _SQL(path, cell):
         
     elif 'ENGINE' in globals() and ENGINE:
         engine = create_engine(ENGINE)
-    
-    psql_command = False
-    if cell.startswith('\\'):
-        psql_command = True
-        pg = ['psql', db, '-c', cell.strip(), '-H']
 
     args = path.split(' ')
     for i in args:
@@ -268,7 +359,7 @@ def _SQL(path, cell):
             exec('global DB\nDB=db')
 
             home = expanduser("~")
-            filepath = home + '/.ipython/profile_default/startup/ac_engine_config.py'
+            filepath = home + '/.ipython/profile_default/startup/sqlcell/ac_engine_config.py'
 
             for line in fileinput.FileInput(filepath,inplace=1):
                 line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
@@ -286,6 +377,17 @@ def _SQL(path, cell):
         else:
             exec(i)
 
+    psql_command = False
+    if cell.startswith('\\'):
+        psql_command = True
+        db_name = db if isinstance(db, (str, unicode)) else __ENGINE__.url.database
+
+        commands = ''
+        for i in cell.strip().split(';'):
+            if i:
+                commands += ' -c ' + '"'+i+'" '
+        commands = 'psql ' + db_name + commands + '-H'
+
     matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s', cell)
     
     t0 = time.time()
@@ -294,20 +396,35 @@ def _SQL(path, cell):
     try:
         if not psql_command:
             data = connection.execute(cell, reduce(build_dict, matches, {}))
+            t1 = time.time() - t0
             columns = data.keys()
             table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
+            if 'DISPLAY' in locals():
+                if not DISPLAY:
+                    exec('global ' + glovar[1] + '\n' + glovar[1] + '=table_data')
+                    print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
+                    print 'Rows:', len(table_data), '|',
+                    print 'DB:', engine.url.database, '| Host:', engine.url.host
+                    print 'data not displayed but captured in variable: ' + glovar[1]
+                    return None
             df = to_table(table_data)
         else:
-            output = subprocess.check_output(pg)
+            output = subprocess.check_output(commands, shell=True)
+            t1 = time.time() - t0
+            if '<table border=' not in output: # if tabular, psql will send back as a table because of the -H option
+                print output
+                return None 
             data = pd.read_html(output, header=0)[0]
             columns = data.keys()
             table_data = [i for i in data.values.tolist()]
             df = data
     except exc.OperationalError as e:
-        print 'Query cancelled...'
+        with set_stdout_parent(thread_parent):
+            print 'Query cancelled...'
         return None
     except exc.ResourceClosedError as e:
-        print 'Query ran successfully...'
+        with set_stdout_parent(thread_parent):
+            print 'Query ran successfully...'
         return None
     
     t1 = time.time() - t0
@@ -327,7 +444,8 @@ def _SQL(path, cell):
         try:
             df.to_csv(PATH)
         except IOError as e:
-            print 'ATTENTION:', e
+            with set_stdout_parent(thread_parent):
+                print 'ATTENTION:', e
             return None
 
     if 'MAKE_GLOBAL' in locals():
@@ -337,6 +455,8 @@ def _SQL(path, cell):
     str_data = '\t'.join(columns) + '\n'
     for d in data:
         str_data += '\t'.join([str(i) for i in d]) + '\n'
+
+    t3 = time.time() - t2
     
     display(
         Javascript(
@@ -349,17 +469,17 @@ def _SQL(path, cell):
                         saveData(`"""+str_data+"""`, 'test.tsv');
                     }
                 });
-            """
+                $('#tableData"""+unique_id+"""').append(
+                    '<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
+                    +'To render: %s sec | '
+                    +'Rows: %s | '
+                    +'DB: %s | Host: %s'
+                )
+            """ % (str(round(t1, 3)), str(round(t3, 3)), len(df.index), engine.url.database, engine.url.host)
         )
     )
 
-    t3 = time.time() - t2
-    print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
-    print 'To render: ' + str(round(t3, 3)) + ' sec', '|', 
-    print 'Rows:', len(df.index), '|',
-    print 'DB:', engine.url.database, '| Host:', engine.url.host,
-
-    table_name = re.search('from\s*([a-z]{,})', cell, re.IGNORECASE)
+    table_name = re.search('from\s*([a-z_][a-z\-_0-9]{,})', cell, re.IGNORECASE)
     table_name = None if not table_name else table_name.group(1).strip()
 
     if EDIT:
@@ -381,19 +501,14 @@ def _SQL(path, cell):
         if primary_key_results:
             primary_key = primary_key_results.column_name
 
-            update_dict = None
             if not re.search('join', cell, re.IGNORECASE):
-                print '| EDIT MODE:', table_name
 
-                display(
-                    HTML(
-                        HTMLTable([columns] + table_data, unique_id)._repr_html_()
-                    )
-                )
+                HTMLTable(table_data, unique_id).display(columns, msg=' | EDIT MODE')
+
                 display(
                     Javascript(
                         """
-                        $('#table%s').editableTableWidget();
+                        $('#table%s').editableTableWidget({preventColumns:[1]});
                         $('#table%s').on('change', function(evt, newValue){
                             var th = $('#table%s th').eq(evt.target.cellIndex);
                             var columnName = th.text();
@@ -417,45 +532,57 @@ def _SQL(path, cell):
                             });
 
                             var SQLText = "UPDATE " + tableName + " SET " + columnName + " = '" + newValue + "' WHERE " + primary_key + " = " + pkValue;
-                            console.log(SQLText);
+                            console.log(SQLText, 't' + pkValue + 't');
 
-                            IPython.notebook.kernel.execute('update_table("'+SQLText+'")',
-                                {
-                                    iopub: {
-                                        output: function(response) {
-                                            var error = response.content.evalue.replace(/\\n/g, "</br>");
-                                            $('#table%s').parent().append('<h5 style="color:#d9534f;">'+error+'</h5>');
+                            if (pkValue === ''){
+                                console.log('testingietren');
+                            } else {
+                                $('#error').remove();
+                                IPython.notebook.kernel.execute('update_table("'+SQLText+'")',
+                                    {
+                                        iopub: {
+                                            output: function(response) {
+                                                var $table = $('#table%s').parent();
+                                                if (response.content.evalue){
+                                                    var error = response.content.evalue.replace(/\\n/g, "</br>");
+                                                    $table.append('<h5 id="error" style="color:#d9534f;">'+error+'</h5>');
+                                                } else {
+                                                    $table.append('<h5 id="error" style="color:#5cb85c;">Update successful</h5>');
+                                                }
+                                            }
                                         }
+                                    },
+                                    {
+                                        silent: false, 
+                                        store_history: false, 
+                                        stop_on_error: true
                                     }
-                                },
-                                {
-                                    silent: false, 
-                                    store_history: false, 
-                                    stop_on_error: true
-                                }
-                            );
+                                );
+                            }
                         });
                         """ % (unique_id, unique_id, unique_id, table_name, primary_key, unique_id, unique_id, unique_id)
                     )
                 )
-                if update_dict:
-                    print update_dict
-                return None
 
             else:
-                print '| CAN\'T EDIT MULTIPLE TABLES'
+                HTMLTable(table_data, unique_id).display(columns, msg=' | CAN\'T EDIT MULTIPLE TABLES')
                 return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
         else:
-            print '| TABLE HAS NO PK'
+            HTMLTable(table_data, unique_id).display(columns, msg=' | TABLE HAS NO PK')
             return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
     else:
-        print '| READ MODE'
+        HTMLTable(table_data, unique_id).display(columns, msg=' | READ MODE')
         return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
 
 
 @register_line_cell_magic
 def sql(path, cell):
-    return _SQL(path, cell)
+    thread_parent = sys.stdout.parent_header
+    q = new_queue()
+    t = threading.Thread(target=_SQL, args=(path, cell, thread_parent))
+    t.daemon = True
+    t.start()
+    return None
 
 
 js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
