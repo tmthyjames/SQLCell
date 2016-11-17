@@ -14,8 +14,8 @@ import IPython
 from IPython.display import Javascript
 from IPython.core.display import display, HTML
 from sqlalchemy import create_engine, exc
-from engines.ac_engine_config import driver, username, password, host, port, default_db
-from engines.ae_engines import __ENGINES_JSON__
+from SQLCell.engines.engine_config import driver, username, password, host, port, default_db
+from SQLCell.engines.engines import __ENGINES_JSON__
 
 
 unique_db_id = str(uuid.uuid4())
@@ -359,7 +359,7 @@ def _SQL(path, cell, thread_parent=None):
             exec('global DB\nDB=db')
 
             home = expanduser("~")
-            filepath = home + '/.ipython/profile_default/startup/sqlcell/ac_engine_config.py'
+            filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
 
             for line in fileinput.FileInput(filepath,inplace=1):
                 line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
