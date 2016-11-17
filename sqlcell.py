@@ -5,19 +5,17 @@ import uuid
 import json
 import subprocess
 import sys
-import thread
 import threading
 import Queue
 from contextlib import contextmanager
 from os.path import expanduser
-from IPython.core.magic import (register_line_magic, register_cell_magic,
-                                register_line_cell_magic)
+from IPython.core.magic import register_line_cell_magic
 import IPython
 from IPython.display import Javascript
 from IPython.core.display import display, HTML
 from sqlalchemy import create_engine, exc
-from sqlcell.ac_engine_config import driver, username, password, host, port, default_db
-from sqlcell.ae_engines import __ENGINES_JSON__
+from engines.ac_engine_config import driver, username, password, host, port, default_db
+from engines.ae_engines import __ENGINES_JSON__
 
 
 unique_db_id = str(uuid.uuid4())

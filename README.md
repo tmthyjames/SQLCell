@@ -1,3 +1,17 @@
+*** UPDATE ***  -  11/08/2016
+
+Introducing inline editing
+
+![inline editing](images/Screen Shot 2016-11-08 at 8.32.56 PM.png)
+
+*** UPDATE ***
+
+Introducing buttons!
+
+![lots_of_buttons](images/buttons.png?raw=true)
+
+Buttons include </br> • Running Explain Analyze on your query </br> • executing query </br> • executing query and returning SQLAlchemy results in a variable </br> • saving to a TSV </br> • stopping query </br> • swithcing between user-defined engines 
+
 # SQLCell
 Uses Jupyter magic function to run SQL queries in Jupyter Notebook. <a href="https://gist.github.com/tmthyjames/1366b21d0efffb73f1a91361a25b9a55">Blog post here</a>.
 
@@ -7,12 +21,14 @@ use a Jupyter notebook to run queries with as little as
     %%sql
     your query
     
-Just clone the repo and `cp` the file to Jupyter's startup directory:
+Just clone the repo and `cp` the necessary files to Jupyter's startup directory (will update install later):
 
     $ git clone https://github.com/tmthyjames/SQLCell.git
     $ cd SQLCell
     $ cp sqlcell.py ~/.ipython/profile_default/startup/sqlcell.py
     $ cp engine_config.py ~/.ipython/profile_default/startup/engine_config.py
+    $ cp engines.py ~/.ipython/profile_default/startup/engines.py
+    $ cp __init__.py ~/.ipython/profile_default/startup/__init__.py
     
 Then in the Jupyter notebook, define your connection variables. You can also input these directly 
 in the engine_config.py (recommended) script so you don't have to add them everytime. Just find the line that says
