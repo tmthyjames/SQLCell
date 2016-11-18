@@ -1,6 +1,3 @@
 
 *.pyc
 
-engines/engines.py
-
-engines/engine_config.py
