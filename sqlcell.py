@@ -1,3 +1,4 @@
+import __builtin__
 import re
 import fileinput
 import time
@@ -9,13 +10,14 @@ import threading
 import Queue
 from contextlib import contextmanager
 from os.path import expanduser
-from IPython.core.magic import register_line_cell_magic
 import IPython
 from IPython.display import Javascript
 from IPython.core.display import display, HTML
 from sqlalchemy import create_engine, exc
-from engines.ac_engine_config import driver, username, password, host, port, default_db
-from engines.ae_engines import __ENGINES_JSON__
+from engines.engine_config import driver, username, password, host, port, default_db
+from engines.engines import __ENGINES_JSON__
+
+display(Javascript("""<script>$.getScript( "js/editableTableWidget.js");</script>"""))
 
 
 unique_db_id = str(uuid.uuid4())
@@ -29,6 +31,11 @@ __ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)
 
 engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db+application_name)
 EDIT = False
+
+def threaded(fn):
+    def wrapper(*args, **kwargs):
+        threading.Thread(target=fn, args=args, kwargs=kwargs).start()
+    return wrapper
 
 class QUERY(object):
     raw = ''
@@ -64,6 +71,7 @@ class HTMLTable(list):
         table += thead + tbody
         return table
 
+    @threaded
     def display(self, columns=[], msg=None):
         table_str = HTMLTable([columns] + self.data, self.id_)._repr_html_(n_rows=100)
         table_str = table_str.replace('<table', '<table class="table-striped table-hover"').replace("'", "\\'")
@@ -128,6 +136,7 @@ def build_dict(output, row):
 def update_table(sql):
     return engine.execute(sql)
 
+
 def kill_last_pid(app=None, db=None):
     from sqlalchemy import create_engine    
 
@@ -171,7 +180,6 @@ def kill_last_pid_on_new_thread(app, db, unique_id):
 def new_queue():
     return Queue.Queue()
 
-# @timer
 def _SQL(path, cell, thread_parent=None):
     """
     Create magic cell function to treat cell text as SQL
@@ -251,7 +259,7 @@ def _SQL(path, cell, thread_parent=None):
                });
             
                 function explain(){
-                    var command =  `global __EXPLAIN__\n__EXPLAIN__ = True`;
+                    var command =  `__builtin__.__EXPLAIN__ = True`;
                     var kernel = IPython.notebook.kernel;
                     kernel.execute(command);
                     IPython.notebook.execute_cell();
@@ -265,12 +273,17 @@ def _SQL(path, cell, thread_parent=None):
                 };
                 
                 function cancelQuery(applicationID){
-                    IPython.notebook.kernel.execute('kill_last_pid_on_new_thread(jupyter_id, db, "'''+unique_id+'''")',
+                    IPython.notebook.kernel.execute('kill_last_pid_on_new_thread(jupyter_id, DB, "'''+unique_id+'''")',
                         {
                             iopub: {
                                 output: function(response) {
                                     var $table = $("#table'''+unique_id+'''").parent();
                                     console.log(response);
+                                    if (response.content && response.content.text){
+                                        $table.append('<h5 style="color:#d9534f;">'+response.content.text+'</h5>')
+                                    } else if (response.content && response.content.evalue){
+                                        $table.append('<h5 style="color:#d9534f;">'+response.content.evalue+'</h5>');
+                                    }
                                 }
                             }
                         },
@@ -283,15 +296,15 @@ def _SQL(path, cell, thread_parent=None):
                 };
                 
                 function getData(){
-                    var command = `global __GETDATA__ \n__GETDATA__ = True`;
+                    var command = `__builtin__.__GETDATA__ = True`;
                     var kernel = IPython.notebook.kernel;
                     kernel.execute(command);
                     IPython.notebook.execute_cell();
                 };
                 
                 function saveData(data, filename){
-                    var path = $('#path').val();
-                    var command = `global __SAVEDATA__ \n__SAVEDATA__, PATH = True,'`+path+`'`;
+                    var path = $('#path').val() || './'
+                    var command = `__builtin__.__SAVEDATA__, PATH = True,'`+path+`'`;
                     var kernel = IPython.notebook.kernel;
                     kernel.execute(command);
                     //IPython.notebook.execute_cell();
@@ -330,20 +343,19 @@ def _SQL(path, cell, thread_parent=None):
         )
     )
     
-    if '__EXPLAIN__' in globals() and __EXPLAIN__:
+    if '__EXPLAIN__' in dir(__builtin__) and __builtin__.__EXPLAIN__:
         cell = 'EXPLAIN ANALYZE ' + cell
-        __EXPLAIN__ = False
+        __builtin__.__EXPLAIN__ = False
         
-    elif '__GETDATA__' in globals() and __GETDATA__:
+    elif '__GETDATA__' in dir(__builtin__) and __builtin__.__GETDATA__:
         if 'MAKE_GLOBAL' not in path:
             path = 'MAKE_GLOBAL=DATA RAW=True ' + path.strip()
-            with set_stdout_parent(thread_parent):
-                print 'data available as DATA'
-        __GETDATA__ = False
+            print 'data available as DATA'
+        __builtin__.__GETDATA__ = False
     
-    elif '__SAVEDATA__' in globals() and __SAVEDATA__:
-        path = 'PATH="'+PATH+'" '+path
-        __SAVEDATA__ = PATH = False
+    elif '__SAVEDATA__' in dir(__builtin__) and __builtin__.__SAVEDATA__:
+        # path = 'PATH="'+PATH+'" '+path # not sure what this did
+        __builtin__.__SAVEDATA__ = PATH = False
         
     elif 'ENGINE' in globals() and ENGINE:
         engine = create_engine(ENGINE)
@@ -355,11 +367,12 @@ def _SQL(path, cell, thread_parent=None):
             exec(glovar[0]+'='+glovar[1]+'=None')
         elif i.startswith('DB'):
             db = i.replace('DB=', '') 
+            __builtin__.DB = db
             exec("global engine\nengine=create_engine('"+driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name+"')")
             exec('global DB\nDB=db')
 
             home = expanduser("~")
-            filepath = home + '/.ipython/profile_default/startup/sqlcell/ac_engine_config.py'
+            filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
 
             for line in fileinput.FileInput(filepath,inplace=1):
                 line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
@@ -401,7 +414,7 @@ def _SQL(path, cell, thread_parent=None):
             table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
             if 'DISPLAY' in locals():
                 if not DISPLAY:
-                    exec('global ' + glovar[1] + '\n' + glovar[1] + '=table_data')
+                    exec('__builtin__.' + glovar[1] + '=table_data')
                     print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
                     print 'Rows:', len(table_data), '|',
                     print 'DB:', engine.url.database, '| Host:', engine.url.host
@@ -419,12 +432,10 @@ def _SQL(path, cell, thread_parent=None):
             table_data = [i for i in data.values.tolist()]
             df = data
     except exc.OperationalError as e:
-        with set_stdout_parent(thread_parent):
-            print 'Query cancelled...'
+        print 'Query cancelled...'
         return None
     except exc.ResourceClosedError as e:
-        with set_stdout_parent(thread_parent):
-            print 'Query ran successfully...'
+        print 'Query ran successfully...'
         return None
     
     t1 = time.time() - t0
@@ -444,17 +455,14 @@ def _SQL(path, cell, thread_parent=None):
         try:
             df.to_csv(PATH)
         except IOError as e:
-            with set_stdout_parent(thread_parent):
-                print 'ATTENTION:', e
+            print 'ATTENTION:', e
             return None
 
     if 'MAKE_GLOBAL' in locals():
-        exec('global ' + glovar[1] + '\n' + glovar[1] + '=df if \'RAW\' not in locals() else table_data')
+        exec('__builtin__.' + glovar[1] + '=df if \'RAW\' not in locals() else table_data')
         
-    data = df.values.tolist()
-    str_data = '\t'.join(columns) + '\n'
-    for d in data:
-        str_data += '\t'.join([str(i) for i in d]) + '\n'
+
+    str_data = df.to_csv(sep="\t") # for downloading
 
     t3 = time.time() - t2
     
@@ -565,25 +573,29 @@ def _SQL(path, cell, thread_parent=None):
                 )
 
             else:
-                HTMLTable(table_data, unique_id).display(columns, msg=' | CAN\'T EDIT MULTIPLE TABLES')
-                return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
+                HTMLTable(table_data, unique_id).display(columns, msg=" | CAN\\'T EDIT MULTIPLE TABLES")
+                return None
+                # return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
         else:
             HTMLTable(table_data, unique_id).display(columns, msg=' | TABLE HAS NO PK')
-            return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
+            return None
+            # return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
     else:
         HTMLTable(table_data, unique_id).display(columns, msg=' | READ MODE')
-        return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
+        return None
+        # return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
 
 
-@register_line_cell_magic
 def sql(path, cell):
     thread_parent = sys.stdout.parent_header
-    q = new_queue()
     t = threading.Thread(target=_SQL, args=(path, cell, thread_parent))
     t.daemon = True
     t.start()
     return None
 
+__builtin__.update_table = update_table
+__builtin__.kill_last_pid_on_new_thread = kill_last_pid_on_new_thread
+__builtin__.jupyter_id = jupyter_id
 
 js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
 IPython.core.display.display_javascript(js, raw=True)
