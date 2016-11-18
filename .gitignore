@@ -1,6 +1,6 @@
 
-# config files
-engines/engine_config.py
+*.pyc
+
 engines/engines.py
 
-*.pyc
+engines/engine_config.py
