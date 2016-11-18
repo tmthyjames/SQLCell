@@ -1,3 +1,7 @@
+*** UPDATE ***  -  11/017/2016
+
+All SQL queries are now executed on separate threads so you can run multiple queries and Python code concurrently.
+
 *** UPDATE ***  -  11/08/2016
 
 Introducing inline editing
