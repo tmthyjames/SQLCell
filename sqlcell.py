@@ -19,6 +19,12 @@ from sqlalchemy import create_engine, exc
 from .engines.engine_config import driver, username, password, host, port, default_db
 from .engines.engines import __ENGINES_JSON__
 
+import logging
+
+logger = logging.getLogger()
+handler = logging.StreamHandler()
+logger.setLevel(logging.DEBUG)
+
 
 display(Javascript("""<script>$.getScript( "js/editableTableWidget.js");</script>"""))
 
@@ -33,6 +39,11 @@ __ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)
 
 engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db+application_name)
 EDIT = False
+
+class KernelVars(object):
+    g = {}
+
+kernel_vars = KernelVars
 
 def threaded(fn):
     def wrapper(*args, **kwargs):
@@ -132,7 +143,7 @@ def timer(func):
     return wrapper
 
 def build_dict(output, row):
-    output[row.replace('%(','').replace(')s','')] = eval(row.replace('%(','').replace(')s',''))
+    output[row.replace('%(','').replace(')s','')] = eval("kernel_vars.g.get('"+row.replace('%(','').replace(')s','')+"')")
     return output
 
 def update_table(sql):
@@ -182,7 +193,7 @@ def kill_last_pid_on_new_thread(app, db, unique_id):
 def new_queue():
     return Queue.Queue()
 
-def _SQL(path, cell, thread_parent=None):
+def _SQL(path, cell, kernel_vars):
     """
     Create magic cell function to treat cell text as SQL
     to remove the need of third party SQL interfaces. The 
@@ -197,9 +208,8 @@ def _SQL(path, cell, thread_parent=None):
     Returns:
         DataFrame:
     """
-    global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine, PATH
+    global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine
     unique_id = str(uuid.uuid4())
-    thread_parent = sys.stdout.parent_header
 
     display(
         HTML(
@@ -453,7 +463,7 @@ def _SQL(path, cell, thread_parent=None):
 
     df.columns = columns
 
-    if 'PATH' in globals() and PATH:
+    if 'PATH' in locals() and PATH:
         try:
             df.to_csv(PATH)
         except IOError as e:
@@ -589,11 +599,25 @@ def _SQL(path, cell, thread_parent=None):
 
 
 def sql(path, cell):
-    thread_parent = sys.stdout.parent_header
-    t = threading.Thread(target=_SQL, args=(path, cell, thread_parent))
+
+    t = threading.Thread(
+        target=_SQL, 
+        args=(
+            path, cell, {
+                    k:v
+                    for (k,v) in kernel_vars.g.iteritems() 
+                        if k not in ('In', 'Out', 'v', 'k') 
+                            and not k.startswith('_') 
+                            and isinstance(v, 
+                               (str, int, float, list, unicode, tuple)
+                            )
+                }
+            )
+        )
     t.daemon = True
     t.start()
     return None
+
 
 __builtin__.update_table = update_table
 __builtin__.kill_last_pid_on_new_thread = kill_last_pid_on_new_thread
