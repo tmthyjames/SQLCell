@@ -19,6 +19,12 @@ from sqlalchemy import create_engine, exc
 from .engines.engine_config import driver, username, password, host, port, default_db
 from .engines.engines import __ENGINES_JSON__
 
+import logging
+
+logger = logging.getLogger()
+handler = logging.StreamHandler()
+logger.setLevel(logging.DEBUG)
+
 
 display(Javascript("""<script>$.getScript( "js/editableTableWidget.js");</script>"""))
 
@@ -202,7 +208,7 @@ def _SQL(path, cell, kernel_vars):
     Returns:
         DataFrame:
     """
-    global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine, PATH
+    global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine
     unique_id = str(uuid.uuid4())
 
     display(
@@ -457,7 +463,7 @@ def _SQL(path, cell, kernel_vars):
 
     df.columns = columns
 
-    if 'PATH' in globals() and PATH:
+    if 'PATH' in locals() and PATH:
         try:
             df.to_csv(PATH)
         except IOError as e:
