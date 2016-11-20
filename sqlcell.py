@@ -137,7 +137,7 @@ def timer(func):
     return wrapper
 
 def build_dict(output, row):
-    output[row.replace('%(','').replace(')s','')] = eval("kernel_vars.g['"+row.replace('%(','').replace(')s','')+"']")
+    output[row.replace('%(','').replace(')s','')] = eval("kernel_vars.g.get('"+row.replace('%(','').replace(')s','')+"')")
     return output
 
 def update_table(sql):
@@ -593,7 +593,21 @@ def _SQL(path, cell, kernel_vars):
 
 
 def sql(path, cell):
-    t = threading.Thread(target=_SQL, args=(path, cell, kernel_vars.g))
+
+    t = threading.Thread(
+        target=_SQL, 
+        args=(
+            path, cell, {
+                    k:v
+                    for (k,v) in kernel_vars.g.iteritems() 
+                        if k not in ('In', 'Out', 'v', 'k') 
+                            and not k.startswith('_') 
+                            and isinstance(v, 
+                               (str, int, float, list, unicode, tuple)
+                            )
+                }
+            )
+        )
     t.daemon = True
     t.start()
     return None
