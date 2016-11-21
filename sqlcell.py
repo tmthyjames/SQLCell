@@ -1,29 +1,26 @@
+# __builtin__'s used with MAKE_GLOBAL param so data can 
+# be passed from this module to the notebook without referencing 
+# a class or any other object. We can just call the variable that's
+# passed to MAKE_GLOBAL
 import __builtin__
 import re
 import fileinput
 import time
 import uuid
-import json
 import subprocess
 import sys
 import threading
-import Queue
-from contextlib import contextmanager
+import logging
 from os.path import expanduser
+
 import IPython
 from IPython.display import Javascript
 from IPython.core.display import display, HTML
+
 from sqlalchemy import create_engine, exc
 
-
 from .engines.engine_config import driver, username, password, host, port, default_db
-from .engines.engines import __ENGINES_JSON__
-
-import logging
-
-logger = logging.getLogger()
-handler = logging.StreamHandler()
-logger.setLevel(logging.DEBUG)
+from .engines.engines import __ENGINES_JSON_DUMPS__
 
 
 display(Javascript("""$.getScript( "js/editableTableWidget.js");"""))
@@ -32,18 +29,34 @@ unique_db_id = str(uuid.uuid4())
 jupyter_id = 'jupyter' + unique_db_id
 application_name = '?application_name='+jupyter_id
 
-for k,v in __ENGINES_JSON__.iteritems():
-    exec(k+'="'+v['engine']+default_db+'"')
-
-__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)
 
 engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db+application_name)
-EDIT = False
 
-class KernelVars(object):
+
+class __KERNEL_VARS__(object):
     g = {}
 
-kernel_vars = KernelVars
+
+class __SQLCell_GLOBAL_VARS__(object):
+
+    jupyter_id = jupyter_id
+    engine = engine
+    EDIT = False
+
+    logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    logger.setLevel(logging.DEBUG)
+
+    def kill_last_pid_on_new_thread(self, app, db, unique_id):
+        t = threading.Thread(target=kill_last_pid, args=(app, db))
+        t.start()
+        HTMLTable([], unique_id).display(msg='<h5 id="error" style="color:#d9534f;">QUERY DEAD...</h5>')
+        return True
+
+    @staticmethod
+    def update_table(sql):
+        return engine.execute(sql)
+
 
 def threaded(fn):
     def wrapper(*args, **kwargs):
@@ -107,47 +120,14 @@ try:
     import pandas as pd
     pd.options.display.max_columns = None
     pd.set_option('display.max_colwidth', -1)
-#     pd.set_option('display.max_rows', 500)
     to_table = pd.DataFrame
 except ImportError as e:
     to_table = HTMLTable
 
-# we need a lock, so that other threads don't snatch control
-# while we have set a temporary parent # from: http://nbviewer.jupyter.org/gist/minrk/4563193
-
-@contextmanager
-def set_stdout_parent(parent):
-    """a context manager for setting a particular parent for sys.stdout
-    
-    the parent determines the destination cell of output
-    """
-    stdout_lock = threading.Lock()
-    save_parent = sys.stdout.parent_header
-    with stdout_lock:
-        sys.stdout.parent_header = parent
-        try:
-            yield
-        finally:
-            # the flush is important, because that's when the parent_header actually has its effect
-            sys.stdout.flush()
-            sys.stdout.parent_header = save_parent
-
-def timer(func):
-    import time
-    def wrapper(*args, **kwargs):
-        t0 = time.time()
-        output = func(*args, **kwargs)
-        t1 = time.time() - t0
-        print("Time to run: {t1:f} ms".format(t1=t1*1000))
-        return output
-    return wrapper
 
 def build_dict(output, row):
-    output[row.replace('%(','').replace(')s','')] = eval("kernel_vars.g.get('"+row.replace('%(','').replace(')s','')+"')")
+    output[row.replace('%(','').replace(')s','')] = eval("__KERNEL_VARS__.g.get('"+row.replace('%(','').replace(')s','')+"')")
     return output
-
-def update_table(sql):
-    return engine.execute(sql)
 
 
 def kill_last_pid(app=None, db=None):
@@ -184,16 +164,8 @@ def kill_last_pid(app=None, db=None):
 
     return True
 
-def kill_last_pid_on_new_thread(app, db, unique_id):
-    t = threading.Thread(target=kill_last_pid, args=(app, db))
-    t.start()
-    HTMLTable([], unique_id).display(msg='<h5 id="error" style="color:#d9534f;">QUERY DEAD...</h5>')
-    return True
 
-def new_queue():
-    return Queue.Queue()
-
-def _SQL(path, cell, kernel_vars):
+def _SQL(path, cell, __KERNEL_VARS__):
     """
     Create magic cell function to treat cell text as SQL
     to remove the need of third party SQL interfaces. The 
@@ -212,23 +184,22 @@ def _SQL(path, cell, kernel_vars):
     db = default_db
 
     unique_id = str(uuid.uuid4())
-
-    if '__EXPLAIN__' in dir(__builtin__) and __builtin__.__EXPLAIN__:
+    if '__EXPLAIN__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__EXPLAIN__:
         cell = 'EXPLAIN ANALYZE ' + cell
-        __builtin__.__EXPLAIN__ = False
+        __SQLCell_GLOBAL_VARS__.__EXPLAIN__ = False
         
-    elif '__GETDATA__' in dir(__builtin__) and __builtin__.__GETDATA__:
+    elif '__GETDATA__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__GETDATA__:
         if 'MAKE_GLOBAL' not in path:
             path = 'MAKE_GLOBAL=DATA RAW=True ' + path.strip()
             print 'data available as DATA'
-        __builtin__.__GETDATA__ = False
+        __SQLCell_GLOBAL_VARS__.__GETDATA__ = False
     
-    elif '__SAVEDATA__' in dir(__builtin__) and __builtin__.__SAVEDATA__:
+    elif '__SAVEDATA__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__SAVEDATA__:
         # path = 'PATH="'+PATH+'" '+path # not sure what this did
-        __builtin__.__SAVEDATA__ = PATH = False
+        __SQLCell_GLOBAL_VARS__.__SAVEDATA__ = PATH = False
         
-    elif 'ENGINE' in dir(__builtin__) and __builtin__.ENGINE:
-        engine = create_engine(ENGINE)
+    elif 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.ENGINE:
+        engine = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE)
 
     args = path.split(' ')
     for i in args:
@@ -237,9 +208,8 @@ def _SQL(path, cell, kernel_vars):
             exec(glovar[0]+'='+glovar[1]+'=None')
         elif i.startswith('DB'):
             db = i.replace('DB=', '') 
-            __builtin__.DB = db
-            exec("global engine\nengine=create_engine('"+driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name+"')")
-            exec('global DB\nDB=db')
+            __SQLCell_GLOBAL_VARS__.DB = db
+            engine = engine if 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) else create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
 
             home = expanduser("~")
             filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
@@ -258,7 +228,9 @@ def _SQL(path, cell, kernel_vars):
                 port, db = conn_str.port, conn_str.database
 
         else:
-            exec(i)
+            if i:
+                exec(i)
+                exec('__SQLCell_GLOBAL_VARS__.'+i)
 
     display(
         HTML(
@@ -320,7 +292,7 @@ def _SQL(path, cell, kernel_vars):
                });
             
                 function explain(){
-                    var command =  `__builtin__.__EXPLAIN__ = True`;
+                    var command =  `__SQLCell_GLOBAL_VARS__.__EXPLAIN__ = True`;
                     var kernel = IPython.notebook.kernel;
                     kernel.execute(command);
                     IPython.notebook.execute_cell();
@@ -334,7 +306,7 @@ def _SQL(path, cell, kernel_vars):
                 };
                 
                 function cancelQuery(applicationID){
-                    IPython.notebook.kernel.execute('kill_last_pid_on_new_thread(jupyter_id, DB, "'''+unique_id+'''")',
+                    IPython.notebook.kernel.execute('__SQLCell_GLOBAL_VARS__().kill_last_pid_on_new_thread(__SQLCell_GLOBAL_VARS__.jupyter_id, "'''+db+'''", "'''+unique_id+'''")',
                         {
                             iopub: {
                                 output: function(response) {
@@ -357,7 +329,7 @@ def _SQL(path, cell, kernel_vars):
                 };
                 
                 function getData(){
-                    var command = `__builtin__.__GETDATA__ = True`;
+                    var command = `__SQLCell_GLOBAL_VARS__.__GETDATA__ = True`;
                     var kernel = IPython.notebook.kernel;
                     kernel.execute(command);
                     IPython.notebook.execute_cell();
@@ -365,7 +337,7 @@ def _SQL(path, cell, kernel_vars):
                 
                 function saveData(data, filename){
                     var path = $('#path').val() || './'
-                    var command = `__builtin__.__SAVEDATA__, PATH = True,'`+path+`'`;
+                    var command = `__SQLCell_GLOBAL_VARS__.__SAVEDATA__, PATH = True,'`+path+`'`;
                     var kernel = IPython.notebook.kernel;
                     kernel.execute(command);
                     //IPython.notebook.execute_cell();
@@ -393,7 +365,7 @@ def _SQL(path, cell, kernel_vars):
                 };
                 
                 function switchEngines(engine){
-                    var command = "__builtin__.ENGINE = " + "'" + engines[engine].engine + "'''+db+'''" + "'";
+                    var command = "__SQLCell_GLOBAL_VARS__.ENGINE = " + "'" + engines[engine].engine + "'''+db+'''" + "'";
                     var kernel = IPython.notebook.kernel;
                     kernel.execute(command,{
                         iopub: {
@@ -522,8 +494,8 @@ def _SQL(path, cell, kernel_vars):
     table_name = re.search('from\s*([a-z_][a-z\-_0-9]{,})', cell, re.IGNORECASE)
     table_name = None if not table_name else table_name.group(1).strip()
 
-    if EDIT:
-
+    if __SQLCell_GLOBAL_VARS__.EDIT:
+        __SQLCell_GLOBAL_VARS__.EDIT = False
         primary_key_results = engine.execute("""
                 SELECT               
                   %(table_name)s as table_name, pg_attribute.attname as column_name
@@ -578,7 +550,7 @@ def _SQL(path, cell, kernel_vars):
                                 console.log('testingietren');
                             } else {
                                 $('#error').remove();
-                                IPython.notebook.kernel.execute('update_table("'+SQLText+'")',
+                                IPython.notebook.kernel.execute('__SQLCell_GLOBAL_VARS__.update_table("'+SQLText+'")',
                                     {
                                         iopub: {
                                             output: function(response) {
@@ -607,15 +579,12 @@ def _SQL(path, cell, kernel_vars):
             else:
                 HTMLTable(table_data, unique_id).display(columns, msg=" | CAN\\'T EDIT MULTIPLE TABLES")
                 return None
-                # return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
         else:
             HTMLTable(table_data, unique_id).display(columns, msg=' | TABLE HAS NO PK')
             return None
-            # return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
     else:
         HTMLTable(table_data, unique_id).display(columns, msg=' | READ MODE')
         return None
-        # return df.replace(to_replace={'QUERY PLAN': {' ': '-'}}, regex=True)
 
 
 def sql(path, cell):
@@ -624,7 +593,7 @@ def sql(path, cell):
         args=(
             path, cell, {
                     k:v
-                    for (k,v) in kernel_vars.g.iteritems() 
+                    for (k,v) in __KERNEL_VARS__.g.iteritems() 
                         if k not in ('In', 'Out', 'v', 'k') 
                             and not k.startswith('_') 
                             and isinstance(v, 
@@ -637,10 +606,6 @@ def sql(path, cell):
     t.start()
     return None
 
-
-__builtin__.update_table = update_table
-__builtin__.kill_last_pid_on_new_thread = kill_last_pid_on_new_thread
-__builtin__.jupyter_id = jupyter_id
 
 js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
 IPython.core.display.display_javascript(js, raw=True)
