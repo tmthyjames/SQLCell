@@ -203,34 +203,35 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
     args = path.split(' ')
     for i in args:
-        if i.startswith('MAKE_GLOBAL'):
-            glovar = i.split('=')
-            exec(glovar[0]+'='+glovar[1]+'=None')
-        elif i.startswith('DB'):
-            db = i.replace('DB=', '') 
-            __SQLCell_GLOBAL_VARS__.DB = db
-            engine = engine if 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) else create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
+        if i:
+            if i.startswith('MAKE_GLOBAL'):
+                glovar = i.split('=')
+                exec(glovar[0]+'='+glovar[1]+'=None')
+            elif i.startswith('DB'):
+                db = i.replace('DB=', '') 
+                __SQLCell_GLOBAL_VARS__.DB = db
+                engine = engine if 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) else create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
 
-            home = expanduser("~")
-            filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
+                home = expanduser("~")
+                filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
 
-            for line in fileinput.FileInput(filepath,inplace=1):
-                line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
-                print line,
+                for line in fileinput.FileInput(filepath,inplace=1):
+                    line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
+                    print line,
 
-        elif i.startswith('ENGINE'):
-            exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
-            if ENGINE != str(engine.url):
-                exec("global engine\nengine=create_engine("+i.replace('ENGINE=', "")+application_name+")")
-                conn_str = engine.url
-                driver, username = conn_str.drivername, conn_str.username
-                password, host = conn_str.password, conn_str.host
-                port, db = conn_str.port, conn_str.database
+            elif i.startswith('ENGINE'):
+                exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
+                if ENGINE != str(engine.url):
+                    exec("global engine\nengine=create_engine(\'"+eval(i.replace('ENGINE=', ""))+application_name+"\')")
+                    conn_str = engine.url
+                    driver, username = conn_str.drivername, conn_str.username
+                    password, host = conn_str.password, conn_str.host
+                    port, db = conn_str.port, conn_str.database
 
-        else:
-            if i:
+            else:
                 exec(i)
-                exec('__SQLCell_GLOBAL_VARS__.'+i)
+                
+            exec('__SQLCell_GLOBAL_VARS__.'+i)
 
     display(
         HTML(
