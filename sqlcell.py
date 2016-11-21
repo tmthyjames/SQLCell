@@ -199,7 +199,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         __SQLCell_GLOBAL_VARS__.__SAVEDATA__ = PATH = False
         
     elif 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.ENGINE:
-        engine = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE)
+        engine = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE + application_name)
 
     args = path.split(' ')
     for i in args:
@@ -207,6 +207,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             if i.startswith('MAKE_GLOBAL'):
                 glovar = i.split('=')
                 exec(glovar[0]+'='+glovar[1]+'=None')
+                exec('__SQLCell_GLOBAL_VARS__.'+i)
             elif i.startswith('DB'):
                 db = i.replace('DB=', '') 
                 __SQLCell_GLOBAL_VARS__.DB = db
@@ -219,6 +220,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
                     print line,
 
+                exec('__SQLCell_GLOBAL_VARS__.'+i)
+
             elif i.startswith('ENGINE'):
                 exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
                 if ENGINE != str(engine.url):
@@ -227,11 +230,11 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     driver, username = conn_str.drivername, conn_str.username
                     password, host = conn_str.password, conn_str.host
                     port, db = conn_str.port, conn_str.database
+                    exec('__SQLCell_GLOBAL_VARS__.ENGINE="'+i.replace('ENGINE=', "").replace("'", '')+application_name+'"')
 
             else:
                 exec(i)
-                
-            exec('__SQLCell_GLOBAL_VARS__.'+i)
+                exec('__SQLCell_GLOBAL_VARS__.'+i)
 
     display(
         HTML(
