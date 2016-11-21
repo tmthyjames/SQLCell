@@ -418,7 +418,11 @@ def _SQL(path, cell, __KERNEL_VARS__):
             table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
             if 'DISPLAY' in locals():
                 if not DISPLAY:
-                    exec('__builtin__.' + glovar[1] + '=table_data')
+                    if 'MAKE_GLOBAL' in locals():
+                        exec('__builtin__.' + glovar[1] + '=table_data')
+                    else:
+                        exec('__builtin__.DATA=table_data')
+                        glovar = ['', 'DATA']
                     print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
                     print 'Rows:', len(table_data), '|',
                     print 'DB:', engine.url.database, '| Host:', engine.url.host
