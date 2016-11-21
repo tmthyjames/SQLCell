@@ -31,16 +31,11 @@ Just clone the repo and `cp` the app to Jupyter's startup directory:
     $ git clone https://github.com/tmthyjames/SQLCell.git
     $ cp SQLCell/app.py app.py # place app.py in the startup folder so it will get executed
     
-Then in the Jupyter notebook, define your connection variables. You can also input these directly 
-in the engine_config.py (recommended) script so you don't have to add them everytime. Just find the line that says
-`# default connection string info here` and enter the connection details there. If you don't add them to engine_config.py, 
-then you have to define them everytime and invoke them with `DB=your_database` the first time you use `%%sql`.
+Then in the engine_config.py file, define your connection variables. If you don't add them to engine_config.py, 
+then you'll have to pass a connection string to the ENGINE parameter everytime you use `%%sql`, like so:
 
-    driver = 'postgresql'
-    username = 'username'
-    password = 'password'
-    host = 'host'
-    port = '5432'
+	%%sql ENGINE='postgresql://username:password@host:port/database'
+	SELECT * FROM table;
     
 Now you are ready to ditch pgAdmin or whatever SQL interface you use. Continue reading to see all the available 
 options, like writing results to a CSV, using SQLAlchemy named parameters and more.
