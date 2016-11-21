@@ -26,14 +26,14 @@ handler = logging.StreamHandler()
 logger.setLevel(logging.DEBUG)
 
 
-display(Javascript("""<script>$.getScript( "js/editableTableWidget.js");</script>"""))
+display(Javascript("""$.getScript( "js/editableTableWidget.js");"""))
 
 unique_db_id = str(uuid.uuid4())
 jupyter_id = 'jupyter' + unique_db_id
 application_name = '?application_name='+jupyter_id
 
 for k,v in __ENGINES_JSON__.iteritems():
-    exec(k+'="'+v['engine']+'"')
+    exec(k+'="'+v['engine']+default_db+'"')
 
 __ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)
 
@@ -209,7 +209,56 @@ def _SQL(path, cell, kernel_vars):
         DataFrame:
     """
     global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine
+    db = default_db
+
     unique_id = str(uuid.uuid4())
+
+    if '__EXPLAIN__' in dir(__builtin__) and __builtin__.__EXPLAIN__:
+        cell = 'EXPLAIN ANALYZE ' + cell
+        __builtin__.__EXPLAIN__ = False
+        
+    elif '__GETDATA__' in dir(__builtin__) and __builtin__.__GETDATA__:
+        if 'MAKE_GLOBAL' not in path:
+            path = 'MAKE_GLOBAL=DATA RAW=True ' + path.strip()
+            print 'data available as DATA'
+        __builtin__.__GETDATA__ = False
+    
+    elif '__SAVEDATA__' in dir(__builtin__) and __builtin__.__SAVEDATA__:
+        # path = 'PATH="'+PATH+'" '+path # not sure what this did
+        __builtin__.__SAVEDATA__ = PATH = False
+        
+    elif 'ENGINE' in dir(__builtin__) and __builtin__.ENGINE:
+        engine = create_engine(ENGINE)
+
+    args = path.split(' ')
+    for i in args:
+        if i.startswith('MAKE_GLOBAL'):
+            glovar = i.split('=')
+            exec(glovar[0]+'='+glovar[1]+'=None')
+        elif i.startswith('DB'):
+            db = i.replace('DB=', '') 
+            __builtin__.DB = db
+            exec("global engine\nengine=create_engine('"+driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name+"')")
+            exec('global DB\nDB=db')
+
+            home = expanduser("~")
+            filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
+
+            for line in fileinput.FileInput(filepath,inplace=1):
+                line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
+                print line,
+
+        elif i.startswith('ENGINE'):
+            exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
+            if ENGINE != str(engine.url):
+                exec("global engine\nengine=create_engine("+i.replace('ENGINE=', "")+application_name+")")
+                conn_str = engine.url
+                driver, username = conn_str.drivername, conn_str.username
+                password, host = conn_str.password, conn_str.host
+                port, db = conn_str.port, conn_str.database
+
+        else:
+            exec(i)
 
     display(
         HTML(
@@ -344,9 +393,27 @@ def _SQL(path, cell, kernel_vars):
                 };
                 
                 function switchEngines(engine){
-                    var command = `global ENGINE \nENGINE = eval('` + engine + `')`;
+                    var command = "__builtin__.ENGINE = " + "'" + engines[engine].engine + "'''+db+'''" + "'";
                     var kernel = IPython.notebook.kernel;
-                    kernel.execute(command);
+                    kernel.execute(command,{
+                        iopub: {
+                            output: function(response) {
+                                var $table = $("#table'''+unique_id+'''").parent();
+                                console.log(response);
+                                if (response.content && response.content.text){
+                                    $table.append('<h5 style="color:#d9534f;">'+response.content.text+'</h5>')
+                                } else if (response.content && response.content.evalue){
+                                    $table.append('<h5 style="color:#d9534f;">'+response.content.evalue+'</h5>');
+                                }
+                            }
+                        }
+                    },
+                        {
+                            silent: false, 
+                            store_history: false, 
+                            stop_on_error: true
+                        }
+                    );
                     IPython.notebook.execute_cell();
                 };
 
@@ -354,53 +421,6 @@ def _SQL(path, cell, kernel_vars):
             '''
         )
     )
-    
-    if '__EXPLAIN__' in dir(__builtin__) and __builtin__.__EXPLAIN__:
-        cell = 'EXPLAIN ANALYZE ' + cell
-        __builtin__.__EXPLAIN__ = False
-        
-    elif '__GETDATA__' in dir(__builtin__) and __builtin__.__GETDATA__:
-        if 'MAKE_GLOBAL' not in path:
-            path = 'MAKE_GLOBAL=DATA RAW=True ' + path.strip()
-            print 'data available as DATA'
-        __builtin__.__GETDATA__ = False
-    
-    elif '__SAVEDATA__' in dir(__builtin__) and __builtin__.__SAVEDATA__:
-        # path = 'PATH="'+PATH+'" '+path # not sure what this did
-        __builtin__.__SAVEDATA__ = PATH = False
-        
-    elif 'ENGINE' in globals() and ENGINE:
-        engine = create_engine(ENGINE)
-
-    args = path.split(' ')
-    for i in args:
-        if i.startswith('MAKE_GLOBAL'):
-            glovar = i.split('=')
-            exec(glovar[0]+'='+glovar[1]+'=None')
-        elif i.startswith('DB'):
-            db = i.replace('DB=', '') 
-            __builtin__.DB = db
-            exec("global engine\nengine=create_engine('"+driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name+"')")
-            exec('global DB\nDB=db')
-
-            home = expanduser("~")
-            filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
-
-            for line in fileinput.FileInput(filepath,inplace=1):
-                line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
-                print line,
-
-        elif i.startswith('ENGINE'):
-            exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
-            if ENGINE != str(engine.url):
-                exec("global engine\nengine=create_engine("+i.replace('ENGINE=', "")+application_name+")")
-                conn_str = engine.url
-                driver, username = conn_str.drivername, conn_str.username
-                password, host = conn_str.password, conn_str.host
-                port, db = conn_str.port, conn_str.database
-
-        else:
-            exec(i)
 
     psql_command = False
     if cell.startswith('\\'):
@@ -415,8 +435,8 @@ def _SQL(path, cell, kernel_vars):
 
     matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s', cell)
     
-    t0 = time.time()
     connection = engine.connect()
+    t0 = time.time()
 
     try:
         if not psql_command:
@@ -528,7 +548,7 @@ def _SQL(path, cell, kernel_vars):
                 display(
                     Javascript(
                         """
-                        $('#table%s').editableTableWidget({preventColumns:[1]});
+                        $('#table%s').editableTableWidget({preventColumns:[1,2]});
                         $('#table%s').on('change', function(evt, newValue){
                             var th = $('#table%s th').eq(evt.target.cellIndex);
                             var columnName = th.text();
@@ -599,7 +619,6 @@ def _SQL(path, cell, kernel_vars):
 
 
 def sql(path, cell):
-
     t = threading.Thread(
         target=_SQL, 
         args=(
