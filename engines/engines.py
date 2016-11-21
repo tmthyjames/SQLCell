@@ -1,4 +1,5 @@
 import os
+import json
 
 # this will create a group of bootstrap-style buttons that will
 # allow the user to change engines with the click of a button!
@@ -30,3 +31,6 @@ __ENGINES_JSON__ = {
         "order": 4
     }
 }
+
+__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)
+
