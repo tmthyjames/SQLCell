@@ -206,9 +206,11 @@ def _SQL(path, cell, __KERNEL_VARS__):
         if i:
             glovar = i.split('=')
             if i.startswith('MAKE_GLOBAL'):
-                exec(glovar[0]+'='+glovar[1]+'=None')
-                exec('__SQLCell_GLOBAL_VARS__.'+i)
+                make_global_param = glovar
+                exec(make_global_param[0]+'='+make_global_param[1]+'=None')
+                exec('__SQLCell_GLOBAL_VARS__.'+make_global_param[0] + '="' + make_global_param[1] + '"')
             elif i.startswith('DB'):
+                db_param = glovar
                 db = i.replace('DB=', '') 
                 __SQLCell_GLOBAL_VARS__.DB = db
                 engine = engine if 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) else create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
@@ -220,7 +222,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
                     print line,
 
-                exec('__SQLCell_GLOBAL_VARS__.'+glovar[0] + '="' + glovar[1] + '"')
+                exec('__SQLCell_GLOBAL_VARS__.'+db_param[0] + '="' + db_param[1] + '"')
 
             elif i.startswith('ENGINE'):
                 exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
@@ -471,7 +473,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             return None
 
     if 'MAKE_GLOBAL' in locals():
-        exec('__builtin__.' + glovar[1] + '=df if \'RAW\' not in locals() else table_data')
+        exec('__builtin__.' + make_global_param[1] + '=df if \'RAW\' not in locals() else table_data')
         
 
     str_data = df.to_csv(sep="\t") # for downloading
