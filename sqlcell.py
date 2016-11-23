@@ -100,7 +100,7 @@ class HTMLTable(list):
     @threaded
     def display(self, columns=[], msg=None):
         table_str = HTMLTable([columns] + self.data, self.id_)._repr_html_(n_rows=100)
-        table_str = table_str.replace('<table', '<table class="table-striped table-hover"').replace("'", "\\'")
+        table_str = table_str.replace('<table', '<table class="table-striped table-hover"').replace("'", "\\'").replace('\n','')
         display(
             Javascript(
                 """
@@ -204,8 +204,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
     args = path.split(' ')
     for i in args:
         if i:
+            glovar = i.split('=')
             if i.startswith('MAKE_GLOBAL'):
-                glovar = i.split('=')
                 exec(glovar[0]+'='+glovar[1]+'=None')
                 exec('__SQLCell_GLOBAL_VARS__.'+i)
             elif i.startswith('DB'):
@@ -220,7 +220,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
                     print line,
 
-                exec('__SQLCell_GLOBAL_VARS__.'+i)
+                exec('__SQLCell_GLOBAL_VARS__.'+glovar[0] + '="' + glovar[1] + '"')
 
             elif i.startswith('ENGINE'):
                 exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
