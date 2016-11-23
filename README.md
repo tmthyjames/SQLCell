@@ -67,9 +67,9 @@ After adding your connection details to engines.py, run your first query with th
 
 
 For the rest of the session, you won't have to use the DB argument unless you want to change
-databases.
+databases. And the last-used DB will be persisted even after you shut down Jupyter and start it back up next time. 
 
-	In [4]: %%sql DB=bls
+	In [4]: %%sql
 	        SELECT * 
 	        FROM avg_price LIMIT 3
 <table class="table-striped table-hover" id="table092a65ed-f041-472d-8a5a-2cbc79c7df53" width="100%"><thead><tr><th> </th><th>series_id</th><th>year</th><th>period</th><th>value</th></tr></thead><tbody><tr><td>1</td><td>APU0000701111</td><td>1980</td><td>M01</td><td>0.203</td></tr><tr><td>2</td><td>APU0000701111</td><td>1980</td><td>M02</td><td>0.205</td></tr><tr><td>3</td><td>APU0000701111</td><td>1980</td><td>M03</td><td>0.211</td></tr></tbody></table>
