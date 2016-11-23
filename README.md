@@ -1,4 +1,16 @@
-*** UPDATE ***  -  11/017/2016
+*** UPDATE ***  -  11/22/2016
+
+SQLCell now accepts psql meta commands
+
+	In [1]: %%sql DB=bls
+	        \dp
+<table class="table-striped table-hover" id="table31a4a78e-69dc-40db-9085-6c5788e63e5c" width="100%"><thead><tr><th> </th><th>Schema</th><th>Name</th><th>Type</th><th>Access privileges</th><th>Column privileges</th><th>Policies</th></tr></thead><tbody><tr><td>1</td><td>public</td><td>avg_price</td><td>table</td><td>nan</td><td>nan</td><td>nan</td></tr><tr><td>2</td><td>public</td><td>la_unemployment</td><td>table</td><td>nan</td><td>nan</td><td>nan</td></tr><tr><td>3</td><td>public</td><td>tu_atus</td><td>table</td><td>nan</td><td>nan</td><td>nan</td></tr></tbody></table>
+
+	In [2]: %%sql DB=bls
+	        \d avg_price
+<table class="table-striped table-hover" id="table54690703-ce56-42ab-b574-d0f2c13244bc" width="100%"><thead><tr><th> </th><th>Column</th><th>Type</th><th>Modifiers</th></tr></thead><tbody><tr><td>1</td><td>series_id</td><td>character varying(17)</td><td>nan</td></tr><tr><td>2</td><td>year</td><td>integer</td><td>nan</td></tr><tr><td>3</td><td>period</td><td>character varying(3)</td><td>nan</td></tr><tr><td>4</td><td>value</td><td>real</td><td>nan</td></tr></tbody></table>
+
+*** UPDATE ***  -  11/17/2016
 
 All SQL queries are now executed on separate threads so you can run multiple queries and Python code concurrently.
 
