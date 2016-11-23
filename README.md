@@ -10,6 +10,11 @@ SQLCell now accepts psql meta commands
 	        \d avg_price
 <table class="table-striped table-hover" id="table54690703-ce56-42ab-b574-d0f2c13244bc" width="100%"><thead><tr><th> </th><th>Column</th><th>Type</th><th>Modifiers</th></tr></thead><tbody><tr><td>1</td><td>series_id</td><td>character varying(17)</td><td>nan</td></tr><tr><td>2</td><td>year</td><td>integer</td><td>nan</td></tr><tr><td>3</td><td>period</td><td>character varying(3)</td><td>nan</td></tr><tr><td>4</td><td>value</td><td>real</td><td>nan</td></tr></tbody></table>
 
+	In [3]: %%sql DB=sports
+	        \COPY public.nba (dateof, team, opp, pts, fouls) to '/<path>/<to>/<file>.csv'
+		
+	Out[3]: <p>COPY 3092</p>
+
 *** UPDATE ***  -  11/17/2016
 
 All SQL queries are now executed on separate threads so you can run multiple queries and Python code concurrently.
