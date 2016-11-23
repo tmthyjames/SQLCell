@@ -61,7 +61,18 @@ To use SQLAlchemy's named parameters (it's nice to just copy and paste if you us
 development/editing and don't want to delete all SQLALchemy paramters just to run a query), use
 the PARAMS argument.
 
-![make_global](images/named_params.png?raw=true)
+	In[1]: # define your parameters in a python cell
+	name = '1976'
+	period = 'M01'
+	
+Now in a `%%sql` cell:
+
+	%%sql
+	SELECT * 
+	FROM la_unemployment
+	WHERE year = %(year)s
+		AND period = %(period)s
+	LIMIT 5
 
 And my favorite. You can assign the dataframe to a variable like this useing the MAKE_GLOBAL argument:
 
