@@ -20,7 +20,7 @@ from IPython.core.display import display, HTML
 from sqlalchemy import create_engine, exc
 
 from .engines.engine_config import driver, username, password, host, port, default_db
-from .engines.engines import __ENGINES_JSON_DUMPS__
+from .engines.engines import __ENGINES_JSON_DUMPS__, __ENGINES_JSON__
 
 
 display(Javascript("""$.getScript( "js/editableTableWidget.js");"""))
@@ -42,6 +42,7 @@ class __SQLCell_GLOBAL_VARS__(object):
     jupyter_id = jupyter_id
     engine = engine
     EDIT = False
+    ENGINES = __ENGINES_JSON__
 
     logger = logging.getLogger()
     handler = logging.StreamHandler()
@@ -80,17 +81,58 @@ class HTMLTable(list):
 
     empty = []
 
-    def _repr_html_(self, n_rows=100):
+    def _repr_html_(self, n_rows=100, length=100):
         table = '<table id="table'+self.id_+'" width=100%>'
         thead = '<thead><tr>'
         tbody = '<tbody>'
+        j = 48
+        query_plan = False
         for n,row in enumerate(self.data):
             if n == 0:
+                query_plan = True if row[0] == 'QUERY PLAN' else False
+                if query_plan:
+                    execution_time = float(re.findall('[0-9]{,}\.[0-9]{,}', self.data[-1][0])[0])
                 thead += '<th>' + ' ' + '</th>' ''.join([('<th>' + str(r) + '</th>') for r in row])
             elif n > n_rows:
-                break
+                if not query_plan:
+                    break
             else:
-                tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td>' + str(r).replace('  ', '&nbsp;&nbsp;&nbsp;') + '</td>') for r in row]) + '</tr>'
+                if not query_plan:
+                    if n > 50 and length > 100:
+                        n = length - j
+                        j -= 1
+                    tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td>' + str(r) + '</td>') for r in row]) + '</tr>'
+                else:
+                    section_time = re.search('actual time=([0-9]{,}\.[0-9]{,})\.\.([0-9]{,}\.[0-9]{,})', row[0])
+                    if section_time:
+                        start_time = float(section_time.group(1))
+                        stop_time = float(section_time.group(2))
+
+                        if (stop_time - start_time) > (execution_time * 0.9):
+                            background_color = "#800026"
+                        elif (stop_time - start_time) > (execution_time * 0.8):
+                            background_color = "#bd0026"
+                        elif (stop_time - start_time) > (execution_time * 0.7):
+                            background_color = "#e31a1c"
+                        elif (stop_time - start_time) > (execution_time * 0.6):
+                            background_color = "#fc4e2a"
+                        elif (stop_time - start_time) > (execution_time * 0.5):
+                            background_color = "#fd8d3c"
+                        elif (stop_time - start_time) > (execution_time * 0.4):
+                            background_color = "#feb24c"
+                        elif (stop_time - start_time) > (execution_time * 0.3):
+                            background_color = "#fed976"
+                        elif (stop_time - start_time) > (execution_time * 0.2):
+                            background_color = "#ffeda0"
+                        elif (stop_time - start_time) > (execution_time * 0.1):
+                            background_color = "#ffffcc"
+                        else:
+                            background_color = "white"
+
+                    td_row = '<tr><td>' + str(n) + '</td>' + ''.join([('<td>' + str(r).replace('  ', '&nbsp;&nbsp;&nbsp;') + '</td>') for r in row]) + '</tr>'
+                    repl = '<b style="background-color:{color};">actual time</b>'.format(color=background_color)
+                    td_row = re.sub('actual time', repl, td_row)
+                    tbody += td_row
         # tbody += '<tr style="height:40px;">' + ''.join([('<td></td>') for r in row]) + '</tr>' # for adding new row
         thead += '</tr></thead>'
         tbody += '</tbody>'
@@ -99,7 +141,8 @@ class HTMLTable(list):
 
     @threaded
     def display(self, columns=[], msg=None):
-        table_str = HTMLTable([columns] + self.data, self.id_)._repr_html_(n_rows=100)
+        data = self.data if len(self.data) <= 100 else self.data[:49] + [['...'] * (len(self.data[0]))] + self.data[-49:]
+        table_str = HTMLTable([columns] + data, self.id_)._repr_html_(n_rows=100, length=len(self.data))
         table_str = table_str.replace('<table', '<table class="table-striped table-hover"').replace("'", "\\'").replace('\n','')
         display(
             Javascript(
@@ -461,7 +504,20 @@ def _SQL(path, cell, __KERNEL_VARS__):
     columns = data.keys()
 
     if df.empty:
-        return 'No data available'
+        display(
+            Javascript(
+                """
+                    $("#cancelQuery"""+unique_id+"""").addClass('disabled')
+
+                    $('#tableData"""+unique_id+"""').append(
+                        '<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
+                        +'Rows: %s | '
+                        +'DB: %s | Host: %s'
+                    )
+                """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
+            )
+        )
+        return None
 
     df.columns = columns
 
