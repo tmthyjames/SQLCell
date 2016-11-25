@@ -91,7 +91,8 @@ class HTMLTable(list):
             if n == 0:
                 query_plan = True if row[0] == 'QUERY PLAN' else False
                 if query_plan:
-                    execution_time = float(re.findall('[0-9]{,}\.[0-9]{,}', self.data[-1][0])[0])
+                    execution_time = re.findall('[0-9]{,}\.[0-9]{,}', str(self.data[-1][0]))
+                    execution_time = execution_time if not execution_time else float(execution_time[0])
                 thead += '<th>' + ' ' + '</th>' ''.join([('<th>' + str(r) + '</th>') for r in row])
             elif n > n_rows:
                 if not query_plan:
@@ -103,7 +104,9 @@ class HTMLTable(list):
                         j -= 1
                     tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td>' + str(r) + '</td>') for r in row]) + '</tr>'
                 else:
-                    section_time = re.search('actual time=([0-9]{,}\.[0-9]{,})\.\.([0-9]{,}\.[0-9]{,})', row[0])
+                    section_time = re.search('actual time=([0-9]{,}\.[0-9]{,})\.\.([0-9]{,}\.[0-9]{,})', str(row[0]))
+                    background_color = ""
+
                     if section_time:
                         start_time = float(section_time.group(1))
                         stop_time = float(section_time.group(2))
@@ -127,7 +130,7 @@ class HTMLTable(list):
                         elif (stop_time - start_time) > (execution_time * 0.1):
                             background_color = "#ffffcc"
                         else:
-                            background_color = "white"
+                            background_color = ""
 
                     td_row = '<tr><td>' + str(n) + '</td>' + ''.join([('<td>' + str(r).replace('  ', '&nbsp;&nbsp;&nbsp;') + '</td>') for r in row]) + '</tr>'
                     repl = '<b style="background-color:{color};">actual time</b>'.format(color=background_color)
