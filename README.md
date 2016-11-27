@@ -42,7 +42,7 @@ use a Jupyter notebook to run queries with as little as
     In [1]: %%sql
             your query
     
-Just clone the repo and `cp` the app to Jupyter's startup directory:
+Just clone the repo and `cp` the `sqlcell_app.py` file to Jupyter's startup directory (on my computer, the directory is `~/.ipython/profile_default/startup`, but may be different depending on your OS and version of IPython/Jupyter):
 
     $ cd .ipython/profile_default/startup # or wherever your startup directory is
     $ git clone https://github.com/tmthyjames/SQLCell.git
