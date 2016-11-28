@@ -1,4 +1,4 @@
-SQLCell Readme with IPython Notebook Markdown can be found <a href="https://cdn.rawgit.com/tmthyjames/2928d9df36b451bcf9f10f1e21f0dae8/raw/1fc4266bab4e61dd3ad37fde29a0d5e48783b57b/SQLCell_Readme.html"><b>here<b></a>
+SQLCell Readme with IPython Notebook Markdown can be found <a href="https://cdn.rawgit.com/tmthyjames/2928d9df36b451bcf9f10f1e21f0dae8/raw/1fc4266bab4e61dd3ad37fde29a0d5e48783b57b/SQLCell_Readme.html"><b>here</b></a>
 
 *** UPDATE ***  -  11/22/2016
 
