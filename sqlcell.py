@@ -229,6 +229,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
     global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine
     db = default_db
 
+    cell = re.sub('\:([a-zA-Z_][a-zA-Z0-9_]{,})', '%(\g<1>)s', cell)
+
     unique_id = str(uuid.uuid4())
     if '__EXPLAIN__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__EXPLAIN__:
         cell = 'EXPLAIN ANALYZE ' + cell
@@ -457,7 +459,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 commands += ' -c ' + '"'+i+'" '
         commands = 'psql ' + db_name + commands + '-H'
 
-    matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s', cell)
+    matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s|:[a-zA-Z_][a-zA-Z0-9_]{,}', cell)
     
     connection = engine.connect()
     t0 = time.time()
