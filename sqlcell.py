@@ -229,7 +229,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
     global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine
     db = default_db
 
-    cell = re.sub('\:([a-zA-Z_][a-zA-Z0-9_]{,})', '%(\g<1>)s', cell)
+    cell = re.sub(' \:([a-zA-Z_][a-zA-Z0-9_]{,})', '%(\g<1>)s', cell)
 
     unique_id = str(uuid.uuid4())
     if '__EXPLAIN__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__EXPLAIN__:
