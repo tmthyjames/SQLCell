@@ -24,10 +24,6 @@ from .engines.engine_config import driver, username, password, host, port, defau
 from .engines.engines import __ENGINES_JSON_DUMPS__, __ENGINES_JSON__
 
 
-display(Javascript("""$.getScript( "js/editableTableWidget.js");"""))
-display(Javascript("""$.getScript( "js/d3.v3.min.js");"""))
-display(Javascript("""$.getScript( "js/sankey.js");"""))
-
 unique_db_id = str(uuid.uuid4())
 jupyter_id = 'jupyter' + unique_db_id
 application_name = '?application_name='+jupyter_id
@@ -50,6 +46,7 @@ class __SQLCell_GLOBAL_VARS__(object):
     DB = default_db
     ISOLATION_LEVEL = 1
     TRANSACTION_BLOCK = True
+    INITIAL_QUERY = True
 
     logger = logging.getLogger()
     handler = logging.StreamHandler()
@@ -250,6 +247,24 @@ def node_walk(obj, key, nodes={}):
             if plans:
                 node_walk(i, 'Plans', nodes)
     return nodes
+
+def load_js_files():
+    display(HTML(
+        """
+        <script>
+        $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
+            console.log(resp, status, 'd3');
+            $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/sankey.js', function(i_resp, i_status){
+                console.log(i_resp, i_status, 'd3.sankey');
+            });
+        });
+        $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
+            console.log(resp, status, 'editableTableWidget')
+        });
+        </script>
+        """
+    ))
+    return None
 
 def _SQL(path, cell, __KERNEL_VARS__):
     """
@@ -758,118 +773,121 @@ def _SQL(path, cell, __KERNEL_VARS__):
                         }
                         </style>
                         <div id='table"""+unique_id+"""'></div>
-                        <script src="//d3js.org/d3.v3.min.js"></script>
-                        <script src="sankey.js"></script>
+
                         <script>
-                        var margin = {top: 1,right: 1,bottom: 6,left: 1},
-                            width = 1400 - margin.left - margin.right,
-                            height = 500 - margin.top - margin.bottom;
+                        var buildQueryPlanSankey = function(response, status){
+                            var margin = {top: 1,right: 1,bottom: 6,left: 1},
+                                width = 1400 - margin.left - margin.right,
+                                height = 500 - margin.top - margin.bottom;
 
-                        var formatNumber = d3.format(",.0f"),
-                            format = function(d) {
-                                return formatNumber(d) + " TWh";
-                            },
-                            color = d3.scale.category20();
+                            var formatNumber = d3.format(",.0f"),
+                                format = function(d) {
+                                    return formatNumber(d) + " TWh";
+                                },
+                                color = d3.scale.category20();
 
-                        var svg = d3.select('#table"""+unique_id+"""').append("svg")
-                            .attr("width", width + margin.left + margin.right)
-                            .attr("height", height + margin.top + margin.bottom)
-                            .append("g")
-                            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+                            var svg = d3.select('#table"""+unique_id+"""').append("svg")
+                                .attr("width", width + margin.left + margin.right)
+                                .attr("height", height + margin.top + margin.bottom)
+                                .append("g")
+                                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-                        var sankey = d3.sankey()
-                            .nodeWidth(15)
-                            .nodePadding(50)
-                            .size([width, height]);
+                            var sankey = d3.sankey()
+                                .nodeWidth(15)
+                                .nodePadding(50)
+                                .size([width, height]);
 
-                        var path = sankey.link();
-                        var energy = """+query_plan+""";
-                        var executionTime = energy.executionTime;
-                        energy = {
-                            nodes: energy.nodes,
-                            links: energy.links
-                        };
-                        sankey
-                            .nodes(energy.nodes)
-                            .links(energy.links)
-                            .layout(32);
-                        var link = svg.append("g").selectAll(".link")
-                            .data(energy.links)
-                            .enter().append("path")
-                            .attr("class", "link")
-                            .attr("d", path)
-                            .style("stroke-width", function(d) {
-                                return Math.max(1, d.dy);
-                            })
-                            .sort(function(a, b) {
-                                return b.dy - a.dy;
-                            });
-
-                        link.append("title")
-                            .html(function(d) {
-                                return d.source.name + " -> " + d.target.name + "<br/>" + format(d.value);
-                            });
-
-                        var node = svg.append("g").selectAll(".node")
-                            .data(energy.nodes)
-                            .enter().append("g")
-                            .attr("class", "node")
-                            .attr("transform", function(d) {
-                                return "translate(" + d.x + "," + d.y + ")";
-                            })
-                            .call(d3.behavior.drag()
-                                .origin(function(d) {
-                                    return d;
+                            var path = sankey.link();
+                            var energy = """+query_plan+""";
+                            var executionTime = energy.executionTime;
+                            energy = {
+                                nodes: energy.nodes,
+                                links: energy.links
+                            };
+                            sankey
+                                .nodes(energy.nodes)
+                                .links(energy.links)
+                                .layout(32);
+                            var link = svg.append("g").selectAll(".link")
+                                .data(energy.links)
+                                .enter().append("path")
+                                .attr("class", "link")
+                                .attr("d", path)
+                                .style("stroke-width", function(d) {
+                                    return Math.max(1, d.dy);
                                 })
-                                .on("dragstart", function() {
-                                    this.parentNode.appendChild(this);
+                                .sort(function(a, b) {
+                                    return b.dy - a.dy;
+                                });
+
+                            link.append("title")
+                                .html(function(d) {
+                                    return d.source.name + " -> " + d.target.name + "<br/>" + format(d.value);
+                                });
+
+                            var node = svg.append("g").selectAll(".node")
+                                .data(energy.nodes)
+                                .enter().append("g")
+                                .attr("class", "node")
+                                .attr("transform", function(d) {
+                                    return "translate(" + d.x + "," + d.y + ")";
                                 })
-                                .on("drag", dragmove));
+                                .call(d3.behavior.drag()
+                                    .origin(function(d) {
+                                        return d;
+                                    })
+                                    .on("dragstart", function() {
+                                        this.parentNode.appendChild(this);
+                                    })
+                                    .on("drag", dragmove));
 
-                        node.append("rect")
-                            .attr("height", function(d) {
-                                return Math.max(d.dy, 3);
-                            })
-                            .attr("width", sankey.nodeWidth())
-                            .style("fill", function(d) {
-                                if ((d.endtime - d.starttime) > (executionTime * 0.9)) return d.color = "#800026"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.8)) return d.color = "#bd0026"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.7)) return d.color = "#e31a1c"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.6)) return d.color = "#fc4e2a"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.5)) return d.color = "#fd8d3c"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.4)) return d.color = "#feb24c"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.3)) return d.color = "#fed976"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.2)) return d.color = "#ffeda0"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.1)) return d.color = "#ffffcc"
-                                else return d.color = "#969696"
-                            })
-                            .append("title")
-                            .html(function(d) {
-                                return (d.display || '') + "<br/>Cost: " + d.value + "<br/>Time: " + d.starttime + '...' + d.endtime + '<br/>Rows: ' + d.rows;
-                            });
+                            node.append("rect")
+                                .attr("height", function(d) {
+                                    return Math.max(d.dy, 3);
+                                })
+                                .attr("width", sankey.nodeWidth())
+                                .style("fill", function(d) {
+                                    if ((d.endtime - d.starttime) > (executionTime * 0.9)) return d.color = "#800026"
+                                    else if ((d.endtime - d.starttime) > (executionTime * 0.8)) return d.color = "#bd0026"
+                                    else if ((d.endtime - d.starttime) > (executionTime * 0.7)) return d.color = "#e31a1c"
+                                    else if ((d.endtime - d.starttime) > (executionTime * 0.6)) return d.color = "#fc4e2a"
+                                    else if ((d.endtime - d.starttime) > (executionTime * 0.5)) return d.color = "#fd8d3c"
+                                    else if ((d.endtime - d.starttime) > (executionTime * 0.4)) return d.color = "#feb24c"
+                                    else if ((d.endtime - d.starttime) > (executionTime * 0.3)) return d.color = "#fed976"
+                                    else if ((d.endtime - d.starttime) > (executionTime * 0.2)) return d.color = "#ffeda0"
+                                    else if ((d.endtime - d.starttime) > (executionTime * 0.1)) return d.color = "#ffffcc"
+                                    else return d.color = "#969696"
+                                })
+                                .append("title")
+                                .html(function(d) {
+                                    return (d.display || '') + "<br/>Cost: " + d.value + "<br/>Time: " + d.starttime + '...' + d.endtime + '<br/>Rows: ' + d.rows;
+                                });
 
-                        node.append("text")
-                            .attr("x", -6)
-                            .attr("y", function(d) {
-                                return d.dy / 2;
-                            })
-                            .attr("dy", ".35em")
-                            .attr("text-anchor", "end")
-                            .attr("transform", null)
-                            .text(function(d) {
-                                return d.subplan || d.nodetype;
-                            })
-                            .filter(function(d) {
-                                return d.x < width / 2;
-                            })
-                            .attr("x", 6 + sankey.nodeWidth())
-                            .attr("text-anchor", "start");
+                            node.append("text")
+                                .attr("x", -6)
+                                .attr("y", function(d) {
+                                    return d.dy / 2;
+                                })
+                                .attr("dy", ".35em")
+                                .attr("text-anchor", "end")
+                                .attr("transform", null)
+                                .text(function(d) {
+                                    return d.subplan || d.nodetype;
+                                })
+                                .filter(function(d) {
+                                    return d.x < width / 2;
+                                })
+                                .attr("x", 6 + sankey.nodeWidth())
+                                .attr("text-anchor", "start");
 
-                        function dragmove(d) {
-                            d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
-                            sankey.relayout();
-                            link.attr("d", path);
+                            function dragmove(d) {
+                                d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
+                                sankey.relayout();
+                                link.attr("d", path);
+                            }
                         }
+
+                        buildQueryPlanSankey();
                         </script>
                         """
                     )
@@ -883,6 +901,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
 
 def sql(path, cell):
+    if __SQLCell_GLOBAL_VARS__.INITIAL_QUERY:
+        load_js_files()
+
     t = threading.Thread(
         target=_SQL, 
         args=(
@@ -899,6 +920,7 @@ def sql(path, cell):
         )
     t.daemon = True
     t.start()
+    __SQLCell_GLOBAL_VARS__.INITIAL_QUERY = False
     return None
 
 
