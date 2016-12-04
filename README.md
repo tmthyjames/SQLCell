@@ -1,3 +1,16 @@
+# SQLCell
+Uses IPython (Jupyter) magic function to run SQL queries in IPython Notebook. <a href="https://gist.github.com/tmthyjames/1366b21d0efffb73f1a91361a25b9a55">Blog post here</a>.
+
+SQLCell Readme with IPython Notebook Markdown can be found <a href="https://cdn.rawgit.com/tmthyjames/2928d9df36b451bcf9f10f1e21f0dae8/raw/1fc4266bab4e61dd3ad37fde29a0d5e48783b57b/SQLCell_Readme.html"><b>here</b></a>
+
+You can get rid of your favorite SQL interface and use a Jupyter Notebook to run queries with as little as 
+
+    In [1]: %%sql
+            your query
+	    
+## Contents
+	1. [Most recent feature](#most-recent-feature)
+
 SQLCell Readme with IPython Notebook Markdown can be found <a href="https://cdn.rawgit.com/tmthyjames/2928d9df36b451bcf9f10f1e21f0dae8/raw/1fc4266bab4e61dd3ad37fde29a0d5e48783b57b/SQLCell_Readme.html"><b>here</b></a>
 
 *** UPDATE ***  -  11/22/2016
@@ -35,14 +48,6 @@ Introducing buttons!
 
 Buttons include </br> • Running Explain Analyze on your query </br> • executing query </br> • executing query and returning SQLAlchemy results in a variable </br> • saving to a TSV </br> • stopping query </br> • swithcing between user-defined engines 
 
-# SQLCell
-Uses Jupyter magic function to run SQL queries in Jupyter Notebook. <a href="https://gist.github.com/tmthyjames/1366b21d0efffb73f1a91361a25b9a55">Blog post here</a>.
-
-In less than one hundred lines of Python, you can get rid of your favorite SQL interface and
-use a Jupyter notebook to run queries with as little as 
-
-    In [1]: %%sql
-            your query
     
 Just clone the repo and `cp` the `sqlcell_app.py` file to Jupyter's startup directory (on my computer, the directory is `~/.ipython/profile_default/startup`, but may be different depending on your OS and version of IPython/Jupyter):
 
