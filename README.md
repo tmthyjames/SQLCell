@@ -15,8 +15,9 @@ Run raw SQL in an IPython Notebook without a wrapper. SQLCell Readme with IPytho
 <br/>&emsp;v. [Buttons](#buttons)
 <br/>&emsp;vi. [Inline editing](#inline-editing)
 <br/>&emsp;vii. [Easy-to-read Query Plan Table](#easy-to-read-query-plan-table)
-&emsp;<br/>• [Pipeline](#pipeline)
 <br/>&emsp;i. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph)
+&emsp;<br/>• [Pipeline](#pipeline)
+<br/>&emsp;i. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph) (Added)
 &emsp;<br/>• To dos
 <br/>&emsp;i. Add UI elements to perform basic, common database tasks, such as adding columns, creating tables, etc.
 
@@ -27,20 +28,9 @@ Open issues can be found <a href="https://github.com/tmthyjames/SQLCell/issues">
 
 added 11/22/2016
 
-SQLCell now accepts psql metacommands
+SQLCell now offers the option to view the Query Plan as a sankey graph built with D3.js
 
-	In [1]: %%sql DB=bls
-	        \dp
-<table class="table-striped table-hover" id="table31a4a78e-69dc-40db-9085-6c5788e63e5c" width="100%"><thead><tr><th> </th><th>Schema</th><th>Name</th><th>Type</th><th>Access privileges</th><th>Column privileges</th><th>Policies</th></tr></thead><tbody><tr><td>1</td><td>public</td><td>avg_price</td><td>table</td><td>nan</td><td>nan</td><td>nan</td></tr><tr><td>2</td><td>public</td><td>la_unemployment</td><td>table</td><td>nan</td><td>nan</td><td>nan</td></tr><tr><td>3</td><td>public</td><td>tu_atus</td><td>table</td><td>nan</td><td>nan</td><td>nan</td></tr></tbody></table>
-
-	In [2]: %%sql DB=bls
-	        \d avg_price
-<table class="table-striped table-hover" id="table54690703-ce56-42ab-b574-d0f2c13244bc" width="100%"><thead><tr><th> </th><th>Column</th><th>Type</th><th>Modifiers</th></tr></thead><tbody><tr><td>1</td><td>series_id</td><td>character varying(17)</td><td>nan</td></tr><tr><td>2</td><td>year</td><td>integer</td><td>nan</td></tr><tr><td>3</td><td>period</td><td>character varying(3)</td><td>nan</td></tr><tr><td>4</td><td>value</td><td>real</td><td>nan</td></tr></tbody></table>
-
-	In [3]: %%sql DB=sports
-	        \COPY public.nba (dateof, team, opp, pts, fouls) to '/<path>/<to>/<file>.csv'
-		
-	Out[3]: <p>COPY 3092</p>
+![query_plan_sankey](images/query_plan_sankey.png)
 
 
 ##Installation and configuration
@@ -241,7 +231,7 @@ This includes a heatmap-like color scale to indicate problem spots in your query
 
 ![query_plan_table](images/query_plan_table.png)
 
-##Pipeline
+##Pipeline (Added)
 
 ###Easy to read Query Plan graph
 Currently in dev, this is a sankey graph and also includes a heatmap-like color scale to indicate problem spots in your query, built with D3.js.
