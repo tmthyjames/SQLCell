@@ -19,6 +19,10 @@ You can get rid of your favorite SQL interface and use an IPython Notebook to ru
 <br/>&emsp;vii. [Easy-to-read Query Plan Table](#easy-to-read-query-plan-table)
 &emsp;<br/>• [Pipeline](#pipeline)
 <br/>&emsp;i. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph)
+&emsp;<br/>• To dos
+<br/>&emsp;i. Add UI elements to perform basic, common database tasks, such as adding columns, creating tables, etc.
+
+Open issues can be found <a href="https://github.com/tmthyjames/SQLCell/issues">here</a>.
 
 
 ##Most recent feature
