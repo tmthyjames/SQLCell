@@ -727,8 +727,6 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 }
                 </style>
                 <div id='table"""+unique_id+"""'></div>
-
-                <script src="sankey.js"></script>
                 <script>
                 var margin = {top: 10,right: 1,bottom: 6,left: 1},
                     width = Math.max("""+str(query_plan_depth*125)+""", 1000) - margin.left - margin.right,
