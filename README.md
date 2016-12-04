@@ -3,17 +3,26 @@ Uses IPython (Jupyter) magic function to run SQL queries in IPython Notebook. <a
 
 SQLCell Readme with IPython Notebook Markdown can be found <a href="https://cdn.rawgit.com/tmthyjames/2928d9df36b451bcf9f10f1e21f0dae8/raw/1fc4266bab4e61dd3ad37fde29a0d5e48783b57b/SQLCell_Readme.html"><b>here</b></a>
 
-You can get rid of your favorite SQL interface and use a Jupyter Notebook to run queries with as little as 
+You can get rid of your favorite SQL interface and use an IPython Notebook to run queries with as little as 
 
     In [1]: %%sql
             your query
 	    
 ## Contents
-	1. [Most recent feature](#most-recent-feature)
+&emsp;<br/>• [Most recent feature](#most-recent-feature)
+&emsp;<br/>• [Installation and Configuration](#installation-and-configuration)
+&emsp;<br/>• [Features](#features)
+<br/>&emsp;i. [Parameters](#parameters)
+<br/>&emsp;i. [Pass python variables to SQL](#pass-python-variables-to-sql)
+<br/>&emsp;ii. [`psql` metacommands](#psql-metacommands)
+<br/>&emsp;iii. [Multi-threading](#multi-threading)
+<br/>&emsp;iv. [Buttons](#buttons)
+<br/>&emsp;iv. [Inline editing](#inline-editing)
 
-SQLCell Readme with IPython Notebook Markdown can be found <a href="https://cdn.rawgit.com/tmthyjames/2928d9df36b451bcf9f10f1e21f0dae8/raw/1fc4266bab4e61dd3ad37fde29a0d5e48783b57b/SQLCell_Readme.html"><b>here</b></a>
 
-*** UPDATE ***  -  11/22/2016
+##Most recent feature
+
+added 11/22/2016
 
 SQLCell now accepts psql meta commands
 
@@ -30,25 +39,9 @@ SQLCell now accepts psql meta commands
 		
 	Out[3]: <p>COPY 3092</p>
 
-*** UPDATE ***  -  11/17/2016
 
-All SQL queries are now executed on separate threads so you can run multiple queries and Python code concurrently.
+##Installation and configuration
 
-*** UPDATE ***  -  11/08/2016
-
-Introducing inline editing
-
-![inline editing](images/Screen Shot 2016-11-08 at 8.32.56 PM.png)
-
-*** UPDATE ***
-
-Introducing buttons!
-
-![lots_of_buttons](images/buttons.png?raw=true)
-
-Buttons include </br> • Running Explain Analyze on your query </br> • executing query </br> • executing query and returning SQLAlchemy results in a variable </br> • saving to a TSV </br> • stopping query </br> • swithcing between user-defined engines 
-
-    
 Just clone the repo and `cp` the `sqlcell_app.py` file to Jupyter's startup directory (on my computer, the directory is `~/.ipython/profile_default/startup`, but may be different depending on your OS and version of IPython/Jupyter):
 
     $ cd .ipython/profile_default/startup # or wherever your startup directory is
@@ -63,6 +56,10 @@ then you'll have to pass a connection string to the ENGINE parameter everytime y
     
 Now you are ready to ditch pgAdmin or whatever SQL interface you use. Continue reading to see all the available 
 options, like writing results to a CSV, using SQLAlchemy named parameters and more.
+
+##Features
+
+###Parameters
 
 After adding your connection details to engines.py, run your first query with the DB argument:
 
@@ -90,36 +87,18 @@ To switch databases, just invoke the DB argument again with a different database
 
 To write the data to a CSV, use the PATH argument:
 
-	In [6]: %%sql DB=sports PATH='/<path>/<to>/<file>.csv'
+	In [6]: %%sql PATH='/<path>/<to>/<file>.csv'
 	        SELECT * 
 	        FROM nba LIMIT 3
 <table class="table-striped table-hover" id="table9b65a0c1-3313-4e7c-9227-006f5c4d522b" width="100%"><thead><tr><th> </th><th>dateof</th><th>team</th><th>opp</th><th>pts</th><th>fg</th><th>fg_att</th><th>ft</th><th>ft_att</th><th>fg3</th><th>fg3_att</th><th>off_rebounds</th><th>def_rebounds</th><th>asst</th><th>blks</th><th>fouls</th><th>stls</th><th>turnovers</th></tr></thead><tbody><tr><td>1</td><td>2015-10-27</td><td>DET</td><td>ATL</td><td>106</td><td>37</td><td>96</td><td>20</td><td>26</td><td>12</td><td>29</td><td>23</td><td>36</td><td>23</td><td>3</td><td>15</td><td>5</td><td>15</td></tr><tr><td>2</td><td>2015-10-27</td><td>ATL</td><td>DET</td><td>94</td><td>37</td><td>82</td><td>12</td><td>15</td><td>8</td><td>27</td><td>7</td><td>33</td><td>22</td><td>4</td><td>25</td><td>9</td><td>15</td></tr><tr><td>3</td><td>2015-10-27</td><td>CLE</td><td>CHI</td><td>95</td><td>38</td><td>94</td><td>10</td><td>17</td><td>9</td><td>29</td><td>11</td><td>39</td><td>26</td><td>7</td><td>21</td><td>5</td><td>11</td></tr></tbody></table>
 
-To use SQLAlchemy's named parameters (it's nice to just copy and paste if you use Jupyter for 
-development/editing and don't want to delete all SQLALchemy paramters just to run a query), use
-the PARAMS argument.
-
-	In[7]: # define your parameters in a python cell
-	        name = '1976'
-	        period = 'M01'
-	
-Now in a `%%sql` cell:
-
-	In [8]: %%sql DB=bls
-	        SELECT * 
-	        FROM la_unemployment
-	        WHERE year = %(year)s
-	            AND period = %(period)s
-	        LIMIT 3
-<table class="table-striped table-hover" id="tableea46889f-5850-4a5d-9b78-af10c7387e1d" width="100%"><thead><tr><th> </th><th>series_id</th><th>year</th><th>period</th><th>value</th><th>footnote_codes</th></tr></thead><tbody><tr><td>1</td><td>LASST470000000000003</td><td>1976</td><td>M01</td><td>6.2</td><td>None</td></tr><tr><td>2</td><td>LASST470000000000004</td><td>1976</td><td>M01</td><td>111152.0</td><td>None</td></tr><tr><td>3</td><td>LASST470000000000005</td><td>1976</td><td>M01</td><td>1691780.0</td><td>None</td></tr></tbody></table>
-
 And my favorite. You can assign the dataframe to a variable like this useing the MAKE_GLOBAL argument:
 
-	In [9]: %%sql MAKE_GLOBAL=WHATEVER_NAME_YOU_WANT
+	In [9]: %%sql MAKE_GLOBAL=WHATEVER_NAME_YOU_WANT DB=bls
 	        SELECT * 
 	        FROM la_unemployment
-	        WHERE year = %(year)s
-	            AND period = %(period)s
+	        WHERE year = 1976
+	            AND period = 'M01'
 	        LIMIT 3
 <table class="table-striped table-hover" id="table44533bf5-37d3-4988-a70d-fa05eeef28f9" width="100%"><thead><tr><th> </th><th>series_id</th><th>year</th><th>period</th><th>value</th><th>footnote_codes</th></tr></thead><tbody><tr><td>1</td><td>LASST470000000000003</td><td>1976</td><td>M01</td><td>6.2</td><td>None</td></tr><tr><td>2</td><td>LASST470000000000004</td><td>1976</td><td>M01</td><td>111152.0</td><td>None</td></tr><tr><td>3</td><td>LASST470000000000005</td><td>1976</td><td>M01</td><td>1691780.0</td><td>None</td></tr></tbody></table>
 
@@ -140,7 +119,77 @@ argument.
 	         [(u'LASST470000000000003', 1976, u'M01', 6.2, None),
 	          (u'LASST470000000000003', 1976, u'M02', 6.1, None),
 	          (u'LASST470000000000003', 1976, u'M03', 6.0, None)]
+		  
+Query the data without rendering the table (useful if the result set is prohibitively large and displaying the table breaks things) by setting the `DISPLAY` parameter to `False`. It makes sense to use this parameter in conjunction with the `MAKE_GLOBAL` parameter so the data is passed to the variable but the table isn't rendered:
+
+	In [10]: %%sql MAKE_GLOBAL=data DISPLAY=False
+	         SELECT * 
+	         FROM la_unemployment
+		 
+The `ENGINE` parameter accepts any connection string and creates a connection based on that.
+
+	In [10]: %%sql ENGINE='postgresql://username:password@host:port/DB'
+	         SELECT * 
+	         FROM la_unemployment
+	         LIMIT 3
     
+Some SQL statements (`VACUUM`, `CREATE <db>`, `DROP <db>`, etc.) must be executed outside of a transaction block by setting the isolation level to 0 (see <a href="https://www.postgresql.org/docs/9.1/static/transaction-iso.html">this</a>)
+
+	In [10]: %%sql TRANSACTION_BLOCK=False
+	         VACUUM ANALYZE <table_name>
+
+
+###Pass Python variables to SQL
+
+To use SQLAlchemy's named parameters (it's nice to just copy and paste if you use Jupyter for 
+development/editing and don't want to delete all SQLALchemy paramters just to run a query), use
+the PARAMS argument.
+
+	In[7]: # define your parameters in a python cell
+	        name = '1976'
+	        period = 'M01'
+	
+Now in a `%%sql` cell:
+
+	In [8]: %%sql DB=bls
+	        SELECT * 
+	        FROM la_unemployment
+	        WHERE year = %(year)s
+	            AND period = %(period)s
+	        LIMIT 3
+<table class="table-striped table-hover" id="tableea46889f-5850-4a5d-9b78-af10c7387e1d" width="100%"><thead><tr><th> </th><th>series_id</th><th>year</th><th>period</th><th>value</th><th>footnote_codes</th></tr></thead><tbody><tr><td>1</td><td>LASST470000000000003</td><td>1976</td><td>M01</td><td>6.2</td><td>None</td></tr><tr><td>2</td><td>LASST470000000000004</td><td>1976</td><td>M01</td><td>111152.0</td><td>None</td></tr><tr><td>3</td><td>LASST470000000000005</td><td>1976</td><td>M01</td><td>1691780.0</td><td>None</td></tr></tbody></table>
+
+###`psql` metacommands
+
+	In [1]: %%sql DB=bls
+	        \dp
+<table class="table-striped table-hover" id="table31a4a78e-69dc-40db-9085-6c5788e63e5c" width="100%"><thead><tr><th> </th><th>Schema</th><th>Name</th><th>Type</th><th>Access privileges</th><th>Column privileges</th><th>Policies</th></tr></thead><tbody><tr><td>1</td><td>public</td><td>avg_price</td><td>table</td><td>nan</td><td>nan</td><td>nan</td></tr><tr><td>2</td><td>public</td><td>la_unemployment</td><td>table</td><td>nan</td><td>nan</td><td>nan</td></tr><tr><td>3</td><td>public</td><td>tu_atus</td><td>table</td><td>nan</td><td>nan</td><td>nan</td></tr></tbody></table>
+
+	In [2]: %%sql
+	        \d avg_price
+<table class="table-striped table-hover" id="table54690703-ce56-42ab-b574-d0f2c13244bc" width="100%"><thead><tr><th> </th><th>Column</th><th>Type</th><th>Modifiers</th></tr></thead><tbody><tr><td>1</td><td>series_id</td><td>character varying(17)</td><td>nan</td></tr><tr><td>2</td><td>year</td><td>integer</td><td>nan</td></tr><tr><td>3</td><td>period</td><td>character varying(3)</td><td>nan</td></tr><tr><td>4</td><td>value</td><td>real</td><td>nan</td></tr></tbody></table>
+
+	In [3]: %%sql DB=sports
+	        \COPY public.nba (dateof, team, opp, pts, fouls) to '/<path>/<to>/<file>.csv'
+		
+	Out[3]: <p>COPY 3092</p>
+
+###Multi-threading
+
+All queries are executed on their own thread, so you can run as many queries as your box will allow while concurrently executing python code.
+
+##Buttons
+
+![lots_of_buttons](images/buttons.png?raw=true)
+
+Buttons include </br> • Running Explain Analyze on your query </br> • executing query </br> • executing query and returning SQLAlchemy results in a variable </br> • saving to a TSV </br> • stopping query </br> • swithcing between user-defined engines 
+
+##Inline editing
+
+Set the `EDIT` parameter to `True` to enable inline editing. As long as you are querying one table and that table has a primary key, then you can edit it using the UI.
+
+![inline editing](images/Screen Shot 2016-11-08 at 8.32.56 PM.png)
+
 And that's it. 
 
 Enjoy and contribute.
