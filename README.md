@@ -29,7 +29,7 @@ Open issues can be found <a href="https://github.com/tmthyjames/SQLCell/issues">
 
 added 11/22/2016
 
-SQLCell now accepts psql meta commands
+SQLCell now accepts psql metacommands
 
 	In [1]: %%sql DB=bls
 	        \dp
@@ -66,6 +66,21 @@ options, like writing results to a CSV, using SQLAlchemy named parameters and mo
 
 ###Parameters
 
+Available parameters:
+<br/>• [`DB`](#db-parameter): Determines what database to query. On the first run, this parameter is required. After that, it will remember what database was chosen. To change databases, use this parameter again. Default is the last-specificed database.
+<br/>• [`PATH`](#path-parameter): Writes results of the query to a CSV (can also be done through the UI). No default.
+<br/>• [`MAKE_GLOBAL`](#make_global-parameter): Passes results of the query to the variable you pass to it. If this parameters is specified but the `RAW` parameter is not, then the results will be a Pandas DataFrame. If `RAW` is set to `True`, then the results will be the raw RowProxy returned from the database. No Default.
+<br/>• [`RAW`](#raw-parameter): Determines whether the data will be of type DataFrame or RowProxy. Default: `False`.
+<br/>• [`DISPLAY`](#display-parameter): Determines whether or not to render the results as a table. This is best used in conjunction with the `MAKE_GLOBAL` parameter because displaying a table in a busy workflow can be cumbersome and annoying sometimes.
+<br/>• [`ENGINE`](#engine-parameter): Speicifies what host, database to connect to. Default is the connection that is specified in the engine_config.py file. If the engine_config.py file is not configured, then the `ENGINE` parameter is required.
+<br/>• [`TRANSACTION_BLOCK`](#transaction_block-parameter)': Determines whether the query will be executed inside a transaction block or not. This is useful when creating a database, dropping a database, `VACUUM ANALYZE`ing a database, or any other query statements that cannot be run inside a transaction block. Default: True
+<br/>• [`EDIT`](#edit-parameter): Enables inline editing. To use this, you must specify only one table in your query, and that table must have primary key. Default: False.
+
+
+
+Examples of how to use these are below.
+
+####`DB` Parameter
 After adding your connection details to engines.py, run your first query with the DB argument:
 
 	In [3]: %%sql DB=bls
@@ -90,6 +105,8 @@ To switch databases, just invoke the DB argument again with a different database
 	        FROM nba LIMIT 3
 <table class="table-striped table-hover" id="table9b65a0c1-3313-4e7c-9227-006f5c4d522b" width="100%"><thead><tr><th> </th><th>dateof</th><th>team</th><th>opp</th><th>pts</th><th>fg</th><th>fg_att</th><th>ft</th><th>ft_att</th><th>fg3</th><th>fg3_att</th><th>off_rebounds</th><th>def_rebounds</th><th>asst</th><th>blks</th><th>fouls</th><th>stls</th><th>turnovers</th></tr></thead><tbody><tr><td>1</td><td>2015-10-27</td><td>DET</td><td>ATL</td><td>106</td><td>37</td><td>96</td><td>20</td><td>26</td><td>12</td><td>29</td><td>23</td><td>36</td><td>23</td><td>3</td><td>15</td><td>5</td><td>15</td></tr><tr><td>2</td><td>2015-10-27</td><td>ATL</td><td>DET</td><td>94</td><td>37</td><td>82</td><td>12</td><td>15</td><td>8</td><td>27</td><td>7</td><td>33</td><td>22</td><td>4</td><td>25</td><td>9</td><td>15</td></tr><tr><td>3</td><td>2015-10-27</td><td>CLE</td><td>CHI</td><td>95</td><td>38</td><td>94</td><td>10</td><td>17</td><td>9</td><td>29</td><td>11</td><td>39</td><td>26</td><td>7</td><td>21</td><td>5</td><td>11</td></tr></tbody></table>
 
+####`PATH` Parameter
+
 To write the data to a CSV, use the PATH argument:
 
 	In [6]: %%sql PATH='/<path>/<to>/<file>.csv'
@@ -97,6 +114,8 @@ To write the data to a CSV, use the PATH argument:
 	        FROM nba LIMIT 3
 <table class="table-striped table-hover" id="table9b65a0c1-3313-4e7c-9227-006f5c4d522b" width="100%"><thead><tr><th> </th><th>dateof</th><th>team</th><th>opp</th><th>pts</th><th>fg</th><th>fg_att</th><th>ft</th><th>ft_att</th><th>fg3</th><th>fg3_att</th><th>off_rebounds</th><th>def_rebounds</th><th>asst</th><th>blks</th><th>fouls</th><th>stls</th><th>turnovers</th></tr></thead><tbody><tr><td>1</td><td>2015-10-27</td><td>DET</td><td>ATL</td><td>106</td><td>37</td><td>96</td><td>20</td><td>26</td><td>12</td><td>29</td><td>23</td><td>36</td><td>23</td><td>3</td><td>15</td><td>5</td><td>15</td></tr><tr><td>2</td><td>2015-10-27</td><td>ATL</td><td>DET</td><td>94</td><td>37</td><td>82</td><td>12</td><td>15</td><td>8</td><td>27</td><td>7</td><td>33</td><td>22</td><td>4</td><td>25</td><td>9</td><td>15</td></tr><tr><td>3</td><td>2015-10-27</td><td>CLE</td><td>CHI</td><td>95</td><td>38</td><td>94</td><td>10</td><td>17</td><td>9</td><td>29</td><td>11</td><td>39</td><td>26</td><td>7</td><td>21</td><td>5</td><td>11</td></tr></tbody></table>
 
+
+####`MAKE_GLOBAL` parameter
 And my favorite. You can assign the dataframe to a variable like this useing the MAKE_GLOBAL argument:
 
 	In [9]: %%sql MAKE_GLOBAL=WHATEVER_NAME_YOU_WANT DB=bls
@@ -112,6 +131,7 @@ And call the variable:
 	In [10]: WHATEVER_NAME_YOU_WANT
 <table class="table-striped table-hover" id="table44533bf5-37d3-4988-a70d-fa05eeef28f9" width="100%"><thead><tr><th> </th><th>series_id</th><th>year</th><th>period</th><th>value</th><th>footnote_codes</th></tr></thead><tbody><tr><td>1</td><td>LASST470000000000003</td><td>1976</td><td>M01</td><td>6.2</td><td>None</td></tr><tr><td>2</td><td>LASST470000000000004</td><td>1976</td><td>M01</td><td>111152.0</td><td>None</td></tr><tr><td>3</td><td>LASST470000000000005</td><td>1976</td><td>M01</td><td>1691780.0</td><td>None</td></tr></tbody></table>
 
+####`RAW` Parameter
 You can also return the raw RowProxy from SQLAlchemy by setting the RAW argument to `True` and using the `MAKE_GLOBAL`
 argument.
 
@@ -124,13 +144,15 @@ argument.
 	         [(u'LASST470000000000003', 1976, u'M01', 6.2, None),
 	          (u'LASST470000000000003', 1976, u'M02', 6.1, None),
 	          (u'LASST470000000000003', 1976, u'M03', 6.0, None)]
-		  
+
+####`DISPLAY` Parameter
 Query the data without rendering the table (useful if the result set is prohibitively large and displaying the table breaks things) by setting the `DISPLAY` parameter to `False`. It makes sense to use this parameter in conjunction with the `MAKE_GLOBAL` parameter so the data is passed to the variable but the table isn't rendered:
 
 	In [10]: %%sql MAKE_GLOBAL=data DISPLAY=False
 	         SELECT * 
 	         FROM la_unemployment
-		 
+
+####`ENGINE` Parameter
 The `ENGINE` parameter accepts any connection string and creates a connection based on that.
 
 	In [10]: %%sql ENGINE='postgresql://username:password@host:port/DB'
@@ -138,10 +160,21 @@ The `ENGINE` parameter accepts any connection string and creates a connection ba
 	         FROM la_unemployment
 	         LIMIT 3
     
+####`TRANSACTION_BLOCK` Parameter
 Some SQL statements (`VACUUM`, `CREATE <db>`, `DROP <db>`, etc.) must be executed outside of a transaction block by setting the isolation level to 0 (see <a href="https://www.postgresql.org/docs/9.1/static/transaction-iso.html">this</a>)
 
 	In [10]: %%sql TRANSACTION_BLOCK=False
 	         VACUUM ANALYZE <table_name>
+		 
+####`EDIT` Parameter
+Enables inline editing.
+
+	In [10]: %%sql EDIT=True
+	         SELECT * 
+	         FROM la_unemployment
+	         LIMIT 3
+
+Will display a table where the cells can be clicked on and edited.
 
 
 ###Pass Python variables to SQL
