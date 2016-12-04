@@ -26,7 +26,7 @@ Open issues can be found <a href="https://github.com/tmthyjames/SQLCell/issues">
 
 ##Most recent feature
 
-added 11/22/2016
+added 12/04/2016
 
 SQLCell now offers the option to view the Query Plan as a sankey graph built with D3.js
 
