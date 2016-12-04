@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import logging
+import json
 from os.path import expanduser
 
 import IPython
@@ -22,8 +23,6 @@ from sqlalchemy import create_engine, exc
 from .engines.engine_config import driver, username, password, host, port, default_db
 from .engines.engines import __ENGINES_JSON_DUMPS__, __ENGINES_JSON__
 
-
-display(Javascript("""$.getScript( "js/editableTableWidget.js");"""))
 
 unique_db_id = str(uuid.uuid4())
 jupyter_id = 'jupyter' + unique_db_id
@@ -40,9 +39,14 @@ class __KERNEL_VARS__(object):
 class __SQLCell_GLOBAL_VARS__(object):
 
     jupyter_id = jupyter_id
-    engine = engine
+    engine = str(engine.url)
     EDIT = False
     ENGINES = __ENGINES_JSON__
+    __EXPLAIN_GRAPH__ = False
+    DB = default_db
+    ISOLATION_LEVEL = 1
+    TRANSACTION_BLOCK = True
+    INITIAL_QUERY = True
 
     logger = logging.getLogger()
     handler = logging.StreamHandler()
@@ -89,11 +93,12 @@ class HTMLTable(list):
         query_plan = False
         for n,row in enumerate(self.data):
             if n == 0:
-                query_plan = True if row[0] == 'QUERY PLAN' else False
-                if query_plan:
-                    execution_time = re.findall('[0-9]{,}\.[0-9]{,}', str(self.data[-1][0]))
-                    execution_time = execution_time if not execution_time else float(execution_time[0])
-                thead += '<th>' + ' ' + '</th>' ''.join([('<th>' + str(r) + '</th>') for r in row])
+                if row:
+                    query_plan = True if row[0] == 'QUERY PLAN' else False
+                    if query_plan:
+                        execution_time = re.findall('[0-9]{,}\.[0-9]{,}', str(self.data[-1][0]))
+                        execution_time = execution_time if not execution_time else float(execution_time[0])
+                    thead += '<th>' + ' ' + '</th>' ''.join([('<th>' + str(r) + '</th>') for r in row])
             elif n > n_rows:
                 if not query_plan:
                     break
@@ -210,6 +215,94 @@ def kill_last_pid(app=None, db=None):
 
     return True
 
+def get_depth(obj, itr=0, depth=[]):
+    if isinstance(obj, dict):
+        for k, v2 in obj.items():
+            if 'Plan' in k:
+                if k == 'Plans':
+                    itr += 1
+                    depth.append(itr)
+                get_depth(v2, itr=itr, depth=depth)
+    elif isinstance(obj, list):
+        for i, v2 in enumerate(obj):
+            if 'Plans' in v2:
+                get_depth(v2, itr=itr, depth=depth)
+    else:
+        depth.append(itr)
+    return depth
+
+def build_node(id_, node, xPos):
+    _node = {
+        'name': id_,
+        'nodetype': node.get('Plan', node).get('Node Type'),
+        'starttime': node.get('Plan', node).get('Actual Startup Time'),
+        'endtime': node.get('Plan', node).get('Actual Total Time'),
+        'subplan': node.get('Plan', node).get('Subplan Name'),
+        'display': str(node.get('Plan', node).get('Join Filter', 
+                                              node.get('Filter', 
+                                                       node.get('Index Cond', 
+                                                                node.get('Hash Cond', 
+                                                                         node.get('One-Time Filter',
+                                                                                 node.get('Recheck Cond')
+                                                                                 )
+                                                                        )
+                                                               )
+                                                      )
+                                             ) or '') + (' using ' 
+                                        + str(node.get('Index Name', 
+                                                       node.get('Relation Name',
+                                                               node.get('Schema')))) + ' ' + str(node.get('Alias')or'')
+                                            if node.get('Index Name', 
+                                                        node.get('Relation Name',
+                                                                node.get('Schema'))) 
+                                            else ''),
+        'rows': node.get('Plan', node).get('Plan Rows'),
+        'xPos': xPos
+    }
+    return _node
+
+def node_walk(obj, key, nodes={}, xPos=None):
+    if not nodes.get('nodes'):
+        nodes['nodes'] = []
+        nodes['links'] = []
+        nodes['executionTime'] = obj.get('Execution Time')
+        nodes['depth'] = 0
+    target = id(obj)
+    source_node = build_node(target, obj, xPos)
+    xPos -= 1
+    if source_node not in nodes['nodes']:
+        nodes['nodes'].append(source_node)
+    for i in obj.get('Plan', obj)[key]:
+        source = id(i)
+        if isinstance(i, dict):
+            plans = i.get('Plans')
+            target_node = build_node(source, i, xPos)
+            if target_node not in nodes['nodes']:
+                nodes['nodes'].append(target_node)
+            nodes['links'].append({'source':source, 'target':target,'value':i.get('Total Cost')})
+            if plans:
+                nodes['depth'] += 1
+                
+                node_walk(i, 'Plans', nodes, xPos)
+    return nodes
+
+def load_js_files():
+    display(HTML(
+        """
+        <script>
+        $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
+            console.log(resp, status, 'd3');
+            $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/sankey.js', function(i_resp, i_status){
+                console.log(i_resp, i_status, 'd3.sankey');
+            });
+        });
+        $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
+            console.log(resp, status, 'editableTableWidget')
+        });
+        </script>
+        """
+    ))
+    return None
 
 def _SQL(path, cell, __KERNEL_VARS__):
     """
@@ -235,6 +328,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
     if '__EXPLAIN__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__EXPLAIN__:
         cell = 'EXPLAIN ANALYZE ' + cell
         __SQLCell_GLOBAL_VARS__.__EXPLAIN__ = False
+
+    elif '__EXPLAIN_GRAPH__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__:
+        cell = 'EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS, FORMAT JSON) ' + cell
         
     elif '__GETDATA__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__GETDATA__:
         if 'MAKE_GLOBAL' not in path:
@@ -259,18 +355,20 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 exec('__SQLCell_GLOBAL_VARS__.'+make_global_param[0] + '="' + make_global_param[1] + '"')
             elif i.startswith('DB'):
                 db_param = glovar
-                db = i.replace('DB=', '') 
-                __SQLCell_GLOBAL_VARS__.DB = db
-                engine = engine if 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) else create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
+                db = i.replace('DB=', '')
+                if db != __SQLCell_GLOBAL_VARS__.DB:
+                    __SQLCell_GLOBAL_VARS__.DB = db
+                    engine = engine if 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) else create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
 
-                home = expanduser("~")
-                filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
+                    home = expanduser("~")
+                    filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
 
-                for line in fileinput.FileInput(filepath,inplace=1):
-                    line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
-                    print line,
+                    for line in fileinput.FileInput(filepath,inplace=1):
+                        line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
+                        print line,
 
-                exec('__SQLCell_GLOBAL_VARS__.'+db_param[0] + '="' + db_param[1] + '"')
+                    exec('__SQLCell_GLOBAL_VARS__.'+db_param[0] + '="' + db_param[1] + '"')
+                    exec('__SQLCell_GLOBAL_VARS__.engine ="'+str(engine.url)+'"')
 
             elif i.startswith('ENGINE'):
                 exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
@@ -281,6 +379,11 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     password, host = conn_str.password, conn_str.host
                     port, db = conn_str.port, conn_str.database
                     exec('__SQLCell_GLOBAL_VARS__.ENGINE="'+i.replace('ENGINE=', "").replace("'", '')+application_name+'"')
+
+            elif i.startswith('TRANSACTION_BLOCK'):
+                __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = eval(glovar[1])
+                if not __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK:
+                    __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 0
 
             else:
                 exec(i)
@@ -303,7 +406,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
             </style>
             <div class="row" id="childDiv'''+unique_id+'''">
                 <div class="btn-group col-md-3">
-                    <button id="explain" title="Explain Analyze" onclick="explain()" type="button" class="btn btn-info btn-sm"><p class="fa fa-info-circle"</p></button>
+                    <button id="explain" title="Explain Analyze" onclick="explain('__EXPLAIN_GRAPH__')" type="button" class="btn btn-info btn-sm"><p class="fa fa-code-fork fa-rotate-270"</p></button>
+                    <button id="explain" title="Explain Analyze" onclick="explain('__EXPLAIN__')" type="button" class="btn btn-info btn-sm"><p class="fa fa-info-circle"</p></button>
                     <button type="button" title="Execute" onclick="run()" class="btn btn-success btn-sm"><p class="fa fa-play"></p></button>
                     <button type="button" title="Execute and Return Data as Variable" onclick="getData()" class="btn btn-success btn-sm"><p class="">var</p></button>
                     <button id="saveData'''+unique_id+'''" title="Save" class="btn btn-success btn-sm disabled" type="button"><p class="fa fa-save"</p></button>
@@ -345,8 +449,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
                    }
                });
             
-                function explain(){
-                    var command =  `__SQLCell_GLOBAL_VARS__.__EXPLAIN__ = True`;
+                function explain(gloVar){
+                    var command =  `__SQLCell_GLOBAL_VARS__.`+gloVar+` = True`;
+                    console.log(command);
                     var kernel = IPython.notebook.kernel;
                     kernel.execute(command);
                     IPython.notebook.execute_cell();
@@ -462,6 +567,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
     matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s|:[a-zA-Z_][a-zA-Z0-9_]{,}', cell)
     
     connection = engine.connect()
+    connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
     t0 = time.time()
 
     try:
@@ -494,11 +600,25 @@ def _SQL(path, cell, __KERNEL_VARS__):
             table_data = [i for i in data.values.tolist()]
             df = data
     except exc.OperationalError as e:
-        print 'Query cancelled...'
+        print 'query cancelled...'
         return None
     except exc.ResourceClosedError as e:
-        print 'Query ran successfully...'
+        display(
+            Javascript(
+                """
+                    $('#tableData"""+unique_id+"""').append(
+                        'Query finished...'
+                        +'<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
+                        +'DB: %s | Host: %s'
+                    )
+                """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
+            )
+        )
         return None
+    finally:
+        __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
+        __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
+        connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
     
     t1 = time.time() - t0
     t2 = time.time()
@@ -554,16 +674,186 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 });
                 $('#tableData"""+unique_id+"""').append(
                     '<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
-                    +'To render: %s sec | '
                     +'Rows: %s | '
                     +'DB: %s | Host: %s'
                 )
-            """ % (str(round(t1, 3)), str(round(t3, 3)), len(df.index), engine.url.database, engine.url.host)
+            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
         )
     )
 
     table_name = re.search('from\s*([a-z_][a-z\-_0-9]{,})', cell, re.IGNORECASE)
     table_name = None if not table_name else table_name.group(1).strip()
+
+    if __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__:
+        query_plan_obj = table_data[0][0][0]
+        try:
+            xPos = max(get_depth(query_plan_obj))
+            qp = node_walk(query_plan_obj, 'Plans', nodes={}, xPos=xPos)
+
+            nodes_enum = [{'name': i['name']} for i in qp['nodes']]
+            for i in reversed(qp['links']):
+                i['source'] = nodes_enum.index({'name': i['source']})
+                i['target'] = nodes_enum.index({'name': i['target']})
+            query_plan_depth = qp['depth']
+
+            query_plan = json.dumps(qp)
+
+            display(
+                HTML(
+                """
+                <style>
+                .node rect {
+                  cursor: move;
+                  fill-opacity: .9;
+                  shape-rendering: crispEdges;
+                }
+
+                .node text {
+                  pointer-events: none;
+                  text-shadow: 0 0px 0 #fff;
+                }
+
+                .link {
+                  fill: none;
+                  stroke: #000;
+                  stroke-opacity: .2;
+                }
+
+                .link:hover {
+                  stroke-opacity: .5;
+                }
+                div.output_area img, div.output_area svg{ 
+                    max-width:none;
+                }
+                </style>
+                <div id='table"""+unique_id+"""'></div>
+
+                <script src="sankey.js"></script>
+                <script>
+                var margin = {top: 10,right: 1,bottom: 6,left: 1},
+                    width = Math.max("""+str(query_plan_depth*125)+""", 1000) - margin.left - margin.right,
+                    height = 500 - margin.bottom;
+
+                var formatNumber = d3.format(",.0f"),
+                    format = function(d) {
+                        return formatNumber(d);
+                    },
+                    color = d3.scale.category20();
+
+                var svg = d3.select('#table"""+unique_id+"""').append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .append("g")
+                    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                var sankey = d3.sankey()
+                    .nodeWidth(15)
+                    .nodePadding(50)
+                    .size([width, height]);
+
+                var path = sankey.link();
+                var energy = """+query_plan+"""
+                var executionTime = energy.executionTime
+                energy = {
+                    nodes: energy.nodes,
+                    links: energy.links
+                };
+                sankey
+                    .nodes(energy.nodes)
+                    .links(energy.links)
+                    .layout(32);
+                var link = svg.append("g").selectAll(".link")
+                    .data(energy.links)
+                    .enter().append("path")
+                    .attr("class", "link")
+                    .attr("d", path)
+                    .style("stroke-width", function(d) {
+                        return Math.max(1, d.dy);
+                    })
+                    .sort(function(a, b) {
+                        return b.dy - a.dy;
+                    });
+
+                link.append("title")
+                    .html(function(d) {
+                        return d.source.nodetype + " -> " 
+                            + d.target.nodetype + "<br/>" 
+                            + 'Total Cost: ' + format(d.value) + "<br/>"
+                            + 'Child Rows: ' + format(d.source.rows) + "<br/>"
+                            + 'Parent Rows: ' + format(d.target.rows);
+                    });
+
+                var node = svg.append("g").selectAll(".node")
+                    .data(energy.nodes)
+                    .enter().append("g")
+                    .attr("class", "node")
+                    .attr("transform", function(d) {
+                        return "translate(" + d.x + "," + d.y + ")";
+                    })
+                    .call(d3.behavior.drag()
+                        .origin(function(d) {
+                            return d;
+                        })
+                        .on("dragstart", function() {
+                            this.parentNode.appendChild(this);
+                        })
+                        .on("drag", dragmove));
+
+                node.append("rect")
+                    .attr("height", function(d) {
+                        return Math.max(d.dy, 3);
+                    })
+                    .attr("width", sankey.nodeWidth())
+                    .style("fill", function(d) {
+                        if ((d.endtime - d.starttime) > (executionTime * 0.9)) return d.color = "#800026"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.8)) return d.color = "#bd0026"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.7)) return d.color = "#e31a1c"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.6)) return d.color = "#fc4e2a"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.5)) return d.color = "#fd8d3c"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.4)) return d.color = "#feb24c"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.3)) return d.color = "#fed976"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.2)) return d.color = "#ffeda0"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.1)) return d.color = "#ffffcc"
+                        else return d.color = "#969696"
+                    })
+                    .append("title")
+                    .html(function(d) { 
+                        return (d.display || '') + "<br/>Cost: " 
+                            + formatNumber(d.value) + "<br/>Time: " 
+                            + d.starttime + '...' + d.endtime
+                            + '<br/>Rows: ' + formatNumber(d.rows);
+                    });
+
+                node.append("text")
+                    .attr("x", -6)
+                    .attr("y", function(d) {
+                        return d.dy / 2;
+                    })
+                    .attr("dy", ".35em")
+                    .attr("text-anchor", "end")
+                    .attr("transform", null)
+                    .text(function(d) {
+                        return d.subplan || d.nodetype;
+                    })
+                    .filter(function(d) {
+                        return d.x < width / 2;
+                    })
+                    .attr("x", 6 + sankey.nodeWidth())
+                    .attr("text-anchor", "start");
+
+                function dragmove(d) {
+                    d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
+                    sankey.relayout();
+                    link.attr("d", path);
+                }
+                </script>
+                """
+                )
+            )
+        except KeyError as e:
+            print "No visual available for this query"
+        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+        return None
 
     if __SQLCell_GLOBAL_VARS__.EDIT:
         __SQLCell_GLOBAL_VARS__.EDIT = False
@@ -659,6 +949,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
 
 def sql(path, cell):
+    if __SQLCell_GLOBAL_VARS__.INITIAL_QUERY:
+        load_js_files()
+
     t = threading.Thread(
         target=_SQL, 
         args=(
@@ -675,6 +968,7 @@ def sql(path, cell):
         )
     t.daemon = True
     t.start()
+    __SQLCell_GLOBAL_VARS__.INITIAL_QUERY = False
     return None
 
 
