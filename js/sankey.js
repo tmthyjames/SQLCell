@@ -35,6 +35,7 @@ d3.sankey = function() {
 
   sankey.size = function(_) {
     if (!arguments.length) return size;
+	_[1] = _[1] - 89;
     size = _;
     return sankey;
   };
