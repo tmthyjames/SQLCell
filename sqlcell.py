@@ -215,37 +215,71 @@ def kill_last_pid(app=None, db=None):
 
     return True
 
-def build_node(id_, node):
+def get_depth(obj, itr=0, depth=[]):
+    if isinstance(obj, dict):
+        for k, v2 in obj.items():
+            if 'Plan' in k:
+                if k == 'Plans':
+                    itr += 1
+                    depth.append(itr)
+                get_depth(v2, itr=itr, depth=depth)
+    elif isinstance(obj, list):
+        for i, v2 in enumerate(obj):
+            if 'Plans' in v2:
+                get_depth(v2, itr=itr, depth=depth)
+    else:
+        depth.append(itr)
+    return depth
+
+def build_node(id_, node, xPos):
     _node = {
         'name': id_,
         'nodetype': node.get('Plan', node).get('Node Type'),
         'starttime': node.get('Plan', node).get('Actual Startup Time'),
         'endtime': node.get('Plan', node).get('Actual Total Time'),
         'subplan': node.get('Plan', node).get('Subplan Name'),
-        'display': node.get('Plan', node).get('Join Filter', node.get('Filter', node.get('Index Cond'))),
+        'display': str(node.get('Plan', node).get('Join Filter', 
+                                              node.get('Filter', 
+                                                       node.get('Index Cond', 
+                                                                node.get('Hash Cond', 
+                                                                         node.get('One-Time Filter',
+                                                                                 node.get('Recheck Cond')
+                                                                                 )
+                                                                        )
+                                                               )
+                                                      )
+                                             ) or '') + ' using ' 
+                                        + str(node.get('Index Name', node.get('Relation Name'))) + ' ' + str(node.get('Alias')or'')
+                                            if node.get('Index Name', node.get('Relation Name')) 
+                                            else '',
         'rows': node.get('Plan', node).get('Plan Rows'),
+        'xPos': xPos
     }
     return _node
 
-def node_walk(obj, key, nodes={}):
+def node_walk(obj, key, nodes={}, xPos=None):
     if not nodes.get('nodes'):
         nodes['nodes'] = []
         nodes['links'] = []
         nodes['executionTime'] = obj.get('Execution Time')
+        nodes['depth'] = 0
     target = id(obj)
-    source_node = build_node(target, obj)
+    source_node = build_node(target, obj, xPos)
+    xPos -= 1
     if source_node not in nodes['nodes']:
         nodes['nodes'].append(source_node)
     for i in obj.get('Plan', obj)[key]:
         source = id(i)
         if isinstance(i, dict):
             plans = i.get('Plans')
-            target_node = build_node(source, i)
+            target_node = build_node(source, i, xPos)
             if target_node not in nodes['nodes']:
                 nodes['nodes'].append(target_node)
             nodes['links'].append({'source':source, 'target':target,'value':i.get('Total Cost')})
             if plans:
-                node_walk(i, 'Plans', nodes)
+                nodes['depth'] += 1
+                
+                node_walk(i, 'Plans', nodes, xPos)
     return nodes
 
 def load_js_files():
@@ -636,11 +670,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 });
                 $('#tableData"""+unique_id+"""').append(
                     '<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
-                    +'To render: %s sec | '
                     +'Rows: %s | '
                     +'DB: %s | Host: %s'
                 )
-            """ % (str(round(t1, 3)), str(round(t3, 3)), len(df.index), engine.url.database, engine.url.host)
+            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
         )
     )
 
@@ -650,157 +683,167 @@ def _SQL(path, cell, __KERNEL_VARS__):
     if __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__:
         query_plan_obj = table_data[0][0][0]
         try:
-            qp = node_walk(query_plan_obj, 'Plans', nodes={})
+            xPos = max(get_depth(query_plan_obj))
+            qp = node_walk(query_plan_obj, 'Plans', nodes={}, xPos=xPos)
+
             nodes_enum = [{'name': i['name']} for i in qp['nodes']]
             for i in reversed(qp['links']):
                 i['source'] = nodes_enum.index({'name': i['source']})
                 i['target'] = nodes_enum.index({'name': i['target']})
+            query_plan_depth = qp['depth']
 
             query_plan = json.dumps(qp)
 
             display(
                 HTML(
-                    """
-                    <style>
-                    .node rect {
-                      cursor: move;
-                      fill-opacity: .9;
-                      shape-rendering: crispEdges;
-                    }
+                """
+                <style>
+                .node rect {
+                  cursor: move;
+                  fill-opacity: .9;
+                  shape-rendering: crispEdges;
+                }
 
-                    .node text {
-                      pointer-events: none;
-                      text-shadow: 0 0px 0 #fff;
-                    }
+                .node text {
+                  pointer-events: none;
+                  text-shadow: 0 0px 0 #fff;
+                }
 
-                    .link {
-                      fill: none;
-                      stroke: #000;
-                      stroke-opacity: .2;
-                    }
+                .link {
+                  fill: none;
+                  stroke: #000;
+                  stroke-opacity: .2;
+                }
 
-                    .link:hover {
-                      stroke-opacity: .5;
-                    }
-                    </style>
-                    <div id='table"""+unique_id+"""'></div>
+                .link:hover {
+                  stroke-opacity: .5;
+                }
+                div.output_area img, div.output_area svg{ 
+                    max-width:none;
+                }
+                </style>
+                <div id='table"""+unique_id+"""'></div>
 
-                    <script>
-                    var buildQueryPlanSankey = function(response, status){
-                        var margin = {top: 1,right: 1,bottom: 6,left: 1},
-                            width = 1400 - margin.left - margin.right,
-                            height = 500 - margin.top - margin.bottom;
+                <script src="sankey.js"></script>
+                <script>
+                var margin = {top: 10,right: 1,bottom: 6,left: 1},
+                    width = Math.max("""+str(query_plan_depth*125)+""", 1000) - margin.left - margin.right,
+                    height = 500 - margin.bottom;
 
-                        var formatNumber = d3.format(",.0f"),
-                            format = function(d) {
-                                return formatNumber(d) + " TWh";
-                            },
-                            color = d3.scale.category20();
+                var formatNumber = d3.format(",.0f"),
+                    format = function(d) {
+                        return formatNumber(d);
+                    },
+                    color = d3.scale.category20();
 
-                        var svg = d3.select('#table"""+unique_id+"""').append("svg")
-                            .attr("width", width + margin.left + margin.right)
-                            .attr("height", height + margin.top + margin.bottom)
-                            .append("g")
-                            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+                var svg = d3.select('#table"""+unique_id+"""').append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .append("g")
+                    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-                        var sankey = d3.sankey()
-                            .nodeWidth(15)
-                            .nodePadding(50)
-                            .size([width, height]);
+                var sankey = d3.sankey()
+                    .nodeWidth(15)
+                    .nodePadding(50)
+                    .size([width, height]);
 
-                        var path = sankey.link();
-                        var energy = """+query_plan+""";
-                        var executionTime = energy.executionTime;
-                        energy = {
-                            nodes: energy.nodes,
-                            links: energy.links
-                        };
-                        sankey
-                            .nodes(energy.nodes)
-                            .links(energy.links)
-                            .layout(32);
-                        var link = svg.append("g").selectAll(".link")
-                            .data(energy.links)
-                            .enter().append("path")
-                            .attr("class", "link")
-                            .attr("d", path)
-                            .style("stroke-width", function(d) {
-                                return Math.max(1, d.dy);
-                            })
-                            .sort(function(a, b) {
-                                return b.dy - a.dy;
-                            });
+                var path = sankey.link();
+                var energy = """+query_plan+"""
+                var executionTime = energy.executionTime
+                energy = {
+                    nodes: energy.nodes,
+                    links: energy.links
+                };
+                sankey
+                    .nodes(energy.nodes)
+                    .links(energy.links)
+                    .layout(32);
+                var link = svg.append("g").selectAll(".link")
+                    .data(energy.links)
+                    .enter().append("path")
+                    .attr("class", "link")
+                    .attr("d", path)
+                    .style("stroke-width", function(d) {
+                        return Math.max(1, d.dy);
+                    })
+                    .sort(function(a, b) {
+                        return b.dy - a.dy;
+                    });
 
-                        link.append("title")
-                            .html(function(d) {
-                                return d.source.name + " -> " + d.target.name + "<br/>" + format(d.value);
-                            });
+                link.append("title")
+                    .html(function(d) {
+                        return d.source.nodetype + " -> " 
+                            + d.target.nodetype + "<br/>" 
+                            + 'Total Cost: ' + format(d.value) + "<br/>"
+                            + 'Child Rows: ' + format(d.source.rows) + "<br/>"
+                            + 'Parent Rows: ' + format(d.target.rows);
+                    });
 
-                        var node = svg.append("g").selectAll(".node")
-                            .data(energy.nodes)
-                            .enter().append("g")
-                            .attr("class", "node")
-                            .attr("transform", function(d) {
-                                return "translate(" + d.x + "," + d.y + ")";
-                            })
-                            .call(d3.behavior.drag()
-                                .origin(function(d) {
-                                    return d;
-                                })
-                                .on("dragstart", function() {
-                                    this.parentNode.appendChild(this);
-                                })
-                                .on("drag", dragmove));
+                var node = svg.append("g").selectAll(".node")
+                    .data(energy.nodes)
+                    .enter().append("g")
+                    .attr("class", "node")
+                    .attr("transform", function(d) {
+                        return "translate(" + d.x + "," + d.y + ")";
+                    })
+                    .call(d3.behavior.drag()
+                        .origin(function(d) {
+                            return d;
+                        })
+                        .on("dragstart", function() {
+                            this.parentNode.appendChild(this);
+                        })
+                        .on("drag", dragmove));
 
-                        node.append("rect")
-                            .attr("height", function(d) {
-                                return Math.max(d.dy, 3);
-                            })
-                            .attr("width", sankey.nodeWidth())
-                            .style("fill", function(d) {
-                                if ((d.endtime - d.starttime) > (executionTime * 0.9)) return d.color = "#800026"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.8)) return d.color = "#bd0026"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.7)) return d.color = "#e31a1c"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.6)) return d.color = "#fc4e2a"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.5)) return d.color = "#fd8d3c"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.4)) return d.color = "#feb24c"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.3)) return d.color = "#fed976"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.2)) return d.color = "#ffeda0"
-                                else if ((d.endtime - d.starttime) > (executionTime * 0.1)) return d.color = "#ffffcc"
-                                else return d.color = "#969696"
-                            })
-                            .append("title")
-                            .html(function(d) {
-                                return (d.display || '') + "<br/>Cost: " + d.value + "<br/>Time: " + d.starttime + '...' + d.endtime + '<br/>Rows: ' + d.rows;
-                            });
+                node.append("rect")
+                    .attr("height", function(d) {
+                        return Math.max(d.dy, 3);
+                    })
+                    .attr("width", sankey.nodeWidth())
+                    .style("fill", function(d) {
+                        if ((d.endtime - d.starttime) > (executionTime * 0.9)) return d.color = "#800026"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.8)) return d.color = "#bd0026"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.7)) return d.color = "#e31a1c"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.6)) return d.color = "#fc4e2a"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.5)) return d.color = "#fd8d3c"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.4)) return d.color = "#feb24c"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.3)) return d.color = "#fed976"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.2)) return d.color = "#ffeda0"
+                        else if ((d.endtime - d.starttime) > (executionTime * 0.1)) return d.color = "#ffffcc"
+                        else return d.color = "#969696"
+                    })
+                    .append("title")
+                    .html(function(d) { 
+                        return (d.display || '') + "<br/>Cost: " 
+                            + formatNumber(d.value) + "<br/>Time: " 
+                            + d.starttime + '...' + d.endtime
+                            + '<br/>Rows: ' + formatNumber(d.rows);
+                    });
 
-                        node.append("text")
-                            .attr("x", -6)
-                            .attr("y", function(d) {
-                                return d.dy / 2;
-                            })
-                            .attr("dy", ".35em")
-                            .attr("text-anchor", "end")
-                            .attr("transform", null)
-                            .text(function(d) {
-                                return d.subplan || d.nodetype;
-                            })
-                            .filter(function(d) {
-                                return d.x < width / 2;
-                            })
-                            .attr("x", 6 + sankey.nodeWidth())
-                            .attr("text-anchor", "start");
+                node.append("text")
+                    .attr("x", -6)
+                    .attr("y", function(d) {
+                        return d.dy / 2;
+                    })
+                    .attr("dy", ".35em")
+                    .attr("text-anchor", "end")
+                    .attr("transform", null)
+                    .text(function(d) {
+                        return d.subplan || d.nodetype;
+                    })
+                    .filter(function(d) {
+                        return d.x < width / 2;
+                    })
+                    .attr("x", 6 + sankey.nodeWidth())
+                    .attr("text-anchor", "start");
 
-                        function dragmove(d) {
-                            d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
-                            sankey.relayout();
-                            link.attr("d", path);
-                        }
-                    }
-
-                    buildQueryPlanSankey();
-                    </script>
-                    """
+                function dragmove(d) {
+                    d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
+                    sankey.relayout();
+                    link.attr("d", path);
+                }
+                </script>
+                """
                 )
             )
         except KeyError as e:
