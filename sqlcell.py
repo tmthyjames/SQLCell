@@ -647,6 +647,167 @@ def _SQL(path, cell, __KERNEL_VARS__):
     table_name = re.search('from\s*([a-z_][a-z\-_0-9]{,})', cell, re.IGNORECASE)
     table_name = None if not table_name else table_name.group(1).strip()
 
+    if __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__:
+        query_plan_obj = table_data[0][0][0]
+        try:
+            qp = node_walk(query_plan_obj, 'Plans', nodes={})
+            nodes_enum = [{'name': i['name']} for i in qp['nodes']]
+            for i in reversed(qp['links']):
+                i['source'] = nodes_enum.index({'name': i['source']})
+                i['target'] = nodes_enum.index({'name': i['target']})
+
+            query_plan = json.dumps(qp)
+
+            display(
+                HTML(
+                    """
+                    <style>
+                    .node rect {
+                      cursor: move;
+                      fill-opacity: .9;
+                      shape-rendering: crispEdges;
+                    }
+
+                    .node text {
+                      pointer-events: none;
+                      text-shadow: 0 0px 0 #fff;
+                    }
+
+                    .link {
+                      fill: none;
+                      stroke: #000;
+                      stroke-opacity: .2;
+                    }
+
+                    .link:hover {
+                      stroke-opacity: .5;
+                    }
+                    </style>
+                    <div id='table"""+unique_id+"""'></div>
+
+                    <script>
+                    var buildQueryPlanSankey = function(response, status){
+                        var margin = {top: 1,right: 1,bottom: 6,left: 1},
+                            width = 1400 - margin.left - margin.right,
+                            height = 500 - margin.top - margin.bottom;
+
+                        var formatNumber = d3.format(",.0f"),
+                            format = function(d) {
+                                return formatNumber(d) + " TWh";
+                            },
+                            color = d3.scale.category20();
+
+                        var svg = d3.select('#table"""+unique_id+"""').append("svg")
+                            .attr("width", width + margin.left + margin.right)
+                            .attr("height", height + margin.top + margin.bottom)
+                            .append("g")
+                            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                        var sankey = d3.sankey()
+                            .nodeWidth(15)
+                            .nodePadding(50)
+                            .size([width, height]);
+
+                        var path = sankey.link();
+                        var energy = """+query_plan+""";
+                        var executionTime = energy.executionTime;
+                        energy = {
+                            nodes: energy.nodes,
+                            links: energy.links
+                        };
+                        sankey
+                            .nodes(energy.nodes)
+                            .links(energy.links)
+                            .layout(32);
+                        var link = svg.append("g").selectAll(".link")
+                            .data(energy.links)
+                            .enter().append("path")
+                            .attr("class", "link")
+                            .attr("d", path)
+                            .style("stroke-width", function(d) {
+                                return Math.max(1, d.dy);
+                            })
+                            .sort(function(a, b) {
+                                return b.dy - a.dy;
+                            });
+
+                        link.append("title")
+                            .html(function(d) {
+                                return d.source.name + " -> " + d.target.name + "<br/>" + format(d.value);
+                            });
+
+                        var node = svg.append("g").selectAll(".node")
+                            .data(energy.nodes)
+                            .enter().append("g")
+                            .attr("class", "node")
+                            .attr("transform", function(d) {
+                                return "translate(" + d.x + "," + d.y + ")";
+                            })
+                            .call(d3.behavior.drag()
+                                .origin(function(d) {
+                                    return d;
+                                })
+                                .on("dragstart", function() {
+                                    this.parentNode.appendChild(this);
+                                })
+                                .on("drag", dragmove));
+
+                        node.append("rect")
+                            .attr("height", function(d) {
+                                return Math.max(d.dy, 3);
+                            })
+                            .attr("width", sankey.nodeWidth())
+                            .style("fill", function(d) {
+                                if ((d.endtime - d.starttime) > (executionTime * 0.9)) return d.color = "#800026"
+                                else if ((d.endtime - d.starttime) > (executionTime * 0.8)) return d.color = "#bd0026"
+                                else if ((d.endtime - d.starttime) > (executionTime * 0.7)) return d.color = "#e31a1c"
+                                else if ((d.endtime - d.starttime) > (executionTime * 0.6)) return d.color = "#fc4e2a"
+                                else if ((d.endtime - d.starttime) > (executionTime * 0.5)) return d.color = "#fd8d3c"
+                                else if ((d.endtime - d.starttime) > (executionTime * 0.4)) return d.color = "#feb24c"
+                                else if ((d.endtime - d.starttime) > (executionTime * 0.3)) return d.color = "#fed976"
+                                else if ((d.endtime - d.starttime) > (executionTime * 0.2)) return d.color = "#ffeda0"
+                                else if ((d.endtime - d.starttime) > (executionTime * 0.1)) return d.color = "#ffffcc"
+                                else return d.color = "#969696"
+                            })
+                            .append("title")
+                            .html(function(d) {
+                                return (d.display || '') + "<br/>Cost: " + d.value + "<br/>Time: " + d.starttime + '...' + d.endtime + '<br/>Rows: ' + d.rows;
+                            });
+
+                        node.append("text")
+                            .attr("x", -6)
+                            .attr("y", function(d) {
+                                return d.dy / 2;
+                            })
+                            .attr("dy", ".35em")
+                            .attr("text-anchor", "end")
+                            .attr("transform", null)
+                            .text(function(d) {
+                                return d.subplan || d.nodetype;
+                            })
+                            .filter(function(d) {
+                                return d.x < width / 2;
+                            })
+                            .attr("x", 6 + sankey.nodeWidth())
+                            .attr("text-anchor", "start");
+
+                        function dragmove(d) {
+                            d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
+                            sankey.relayout();
+                            link.attr("d", path);
+                        }
+                    }
+
+                    buildQueryPlanSankey();
+                    </script>
+                    """
+                )
+            )
+        except KeyError as e:
+            print "No visual available for this query"
+        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+        return None
+
     if __SQLCell_GLOBAL_VARS__.EDIT:
         __SQLCell_GLOBAL_VARS__.EDIT = False
         primary_key_results = engine.execute("""
@@ -736,166 +897,6 @@ def _SQL(path, cell, __KERNEL_VARS__):
             HTMLTable(table_data, unique_id).display(columns, msg=' | TABLE HAS NO PK')
             return None
     else:
-        if __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__:
-            query_plan_obj = table_data[0][0][0]
-            try:
-                qp = node_walk(query_plan_obj, 'Plans', nodes={})
-                nodes_enum = [{'name': i['name']} for i in qp['nodes']]
-                for i in reversed(qp['links']):
-                    i['source'] = nodes_enum.index({'name': i['source']})
-                    i['target'] = nodes_enum.index({'name': i['target']})
-
-                query_plan = json.dumps(qp)
-
-                display(
-                    HTML(
-                        """
-                        <style>
-                        .node rect {
-                          cursor: move;
-                          fill-opacity: .9;
-                          shape-rendering: crispEdges;
-                        }
-
-                        .node text {
-                          pointer-events: none;
-                          text-shadow: 0 0px 0 #fff;
-                        }
-
-                        .link {
-                          fill: none;
-                          stroke: #000;
-                          stroke-opacity: .2;
-                        }
-
-                        .link:hover {
-                          stroke-opacity: .5;
-                        }
-                        </style>
-                        <div id='table"""+unique_id+"""'></div>
-
-                        <script>
-                        var buildQueryPlanSankey = function(response, status){
-                            var margin = {top: 1,right: 1,bottom: 6,left: 1},
-                                width = 1400 - margin.left - margin.right,
-                                height = 500 - margin.top - margin.bottom;
-
-                            var formatNumber = d3.format(",.0f"),
-                                format = function(d) {
-                                    return formatNumber(d) + " TWh";
-                                },
-                                color = d3.scale.category20();
-
-                            var svg = d3.select('#table"""+unique_id+"""').append("svg")
-                                .attr("width", width + margin.left + margin.right)
-                                .attr("height", height + margin.top + margin.bottom)
-                                .append("g")
-                                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-                            var sankey = d3.sankey()
-                                .nodeWidth(15)
-                                .nodePadding(50)
-                                .size([width, height]);
-
-                            var path = sankey.link();
-                            var energy = """+query_plan+""";
-                            var executionTime = energy.executionTime;
-                            energy = {
-                                nodes: energy.nodes,
-                                links: energy.links
-                            };
-                            sankey
-                                .nodes(energy.nodes)
-                                .links(energy.links)
-                                .layout(32);
-                            var link = svg.append("g").selectAll(".link")
-                                .data(energy.links)
-                                .enter().append("path")
-                                .attr("class", "link")
-                                .attr("d", path)
-                                .style("stroke-width", function(d) {
-                                    return Math.max(1, d.dy);
-                                })
-                                .sort(function(a, b) {
-                                    return b.dy - a.dy;
-                                });
-
-                            link.append("title")
-                                .html(function(d) {
-                                    return d.source.name + " -> " + d.target.name + "<br/>" + format(d.value);
-                                });
-
-                            var node = svg.append("g").selectAll(".node")
-                                .data(energy.nodes)
-                                .enter().append("g")
-                                .attr("class", "node")
-                                .attr("transform", function(d) {
-                                    return "translate(" + d.x + "," + d.y + ")";
-                                })
-                                .call(d3.behavior.drag()
-                                    .origin(function(d) {
-                                        return d;
-                                    })
-                                    .on("dragstart", function() {
-                                        this.parentNode.appendChild(this);
-                                    })
-                                    .on("drag", dragmove));
-
-                            node.append("rect")
-                                .attr("height", function(d) {
-                                    return Math.max(d.dy, 3);
-                                })
-                                .attr("width", sankey.nodeWidth())
-                                .style("fill", function(d) {
-                                    if ((d.endtime - d.starttime) > (executionTime * 0.9)) return d.color = "#800026"
-                                    else if ((d.endtime - d.starttime) > (executionTime * 0.8)) return d.color = "#bd0026"
-                                    else if ((d.endtime - d.starttime) > (executionTime * 0.7)) return d.color = "#e31a1c"
-                                    else if ((d.endtime - d.starttime) > (executionTime * 0.6)) return d.color = "#fc4e2a"
-                                    else if ((d.endtime - d.starttime) > (executionTime * 0.5)) return d.color = "#fd8d3c"
-                                    else if ((d.endtime - d.starttime) > (executionTime * 0.4)) return d.color = "#feb24c"
-                                    else if ((d.endtime - d.starttime) > (executionTime * 0.3)) return d.color = "#fed976"
-                                    else if ((d.endtime - d.starttime) > (executionTime * 0.2)) return d.color = "#ffeda0"
-                                    else if ((d.endtime - d.starttime) > (executionTime * 0.1)) return d.color = "#ffffcc"
-                                    else return d.color = "#969696"
-                                })
-                                .append("title")
-                                .html(function(d) {
-                                    return (d.display || '') + "<br/>Cost: " + d.value + "<br/>Time: " + d.starttime + '...' + d.endtime + '<br/>Rows: ' + d.rows;
-                                });
-
-                            node.append("text")
-                                .attr("x", -6)
-                                .attr("y", function(d) {
-                                    return d.dy / 2;
-                                })
-                                .attr("dy", ".35em")
-                                .attr("text-anchor", "end")
-                                .attr("transform", null)
-                                .text(function(d) {
-                                    return d.subplan || d.nodetype;
-                                })
-                                .filter(function(d) {
-                                    return d.x < width / 2;
-                                })
-                                .attr("x", 6 + sankey.nodeWidth())
-                                .attr("text-anchor", "start");
-
-                            function dragmove(d) {
-                                d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
-                                sankey.relayout();
-                                link.attr("d", path);
-                            }
-                        }
-
-                        buildQueryPlanSankey();
-                        </script>
-                        """
-                    )
-                )
-            except KeyError as e:
-                print "No visual available for this query"
-            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-            return None
         HTMLTable(table_data, unique_id).display(columns, msg=' | READ MODE')
         return None
 
