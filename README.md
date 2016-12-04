@@ -1,5 +1,5 @@
 # SQLCell
-Run raw SQL in an IPython Notebook without a wrapper. <a href="https://gist.github.com/tmthyjames/1366b21d0efffb73f1a91361a25b9a55">Blog post here</a>. SQLCell Readme with IPython Notebook Markdown can be found <a href="https://cdn.rawgit.com/tmthyjames/2928d9df36b451bcf9f10f1e21f0dae8/raw/1fc4266bab4e61dd3ad37fde29a0d5e48783b57b/SQLCell_Readme.html"><b>here</b></a>
+Run raw SQL in an IPython Notebook without a wrapper. SQLCell Readme with IPython Notebook Markdown can be found <a href="https://cdn.rawgit.com/tmthyjames/2928d9df36b451bcf9f10f1e21f0dae8/raw/1fc4266bab4e61dd3ad37fde29a0d5e48783b57b/SQLCell_Readme.html"><b>here</b></a>
 
 ![SQLCell preview](images/initial_query_lg.png)
 
