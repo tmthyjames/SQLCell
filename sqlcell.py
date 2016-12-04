@@ -292,11 +292,11 @@ def load_js_files():
         <script>
         $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
             console.log(resp, status, 'd3');
-            $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/sankey.js', function(i_resp, i_status){
+            $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/master/js/sankey.js', function(i_resp, i_status){
                 console.log(i_resp, i_status, 'd3.sankey');
             });
         });
-        $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
+        $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/master/js/editableTableWidget.js', function(resp, status){
             console.log(resp, status, 'editableTableWidget')
         });
         </script>
