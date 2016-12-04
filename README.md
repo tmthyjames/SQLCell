@@ -69,12 +69,12 @@ options, like writing results to a CSV, using SQLAlchemy named parameters and mo
 Available parameters:
 <br/>• [`DB`](#db-parameter): Determines what database to query. On the first run, this parameter is required. After that, it will remember what database was chosen. To change databases, use this parameter again. Default is the last-specificed database.
 <br/>• [`PATH`](#path-parameter): Writes results of the query to a CSV (can also be done through the UI). No default.
-<br/>• [`MAKE_GLOBAL`](#make_global-parameter): Passes results of the query to the variable you pass to it. If this parameters is specified but the `RAW` parameter is not, then the results will be a Pandas DataFrame. If `RAW` is set to `True`, then the results will be the raw RowProxy returned from the database. No Default.
+<br/>• [`MAKE_GLOBAL`](#make_global-parameter): Passes results of the query to the variable you pass to it. If this parameter is specified but the `RAW` parameter is not, then the results will be a Pandas DataFrame. If `RAW` is set to `True`, then the results will be the raw RowProxy returned from the database. No Default.
 <br/>• [`RAW`](#raw-parameter): Determines whether the data will be of type DataFrame or RowProxy. Default: `False`.
 <br/>• [`DISPLAY`](#display-parameter): Determines whether or not to render the results as a table. This is best used in conjunction with the `MAKE_GLOBAL` parameter because displaying a table in a busy workflow can be cumbersome and annoying sometimes.
 <br/>• [`ENGINE`](#engine-parameter): Speicifies what host, database to connect to. Default is the connection that is specified in the engine_config.py file. If the engine_config.py file is not configured, then the `ENGINE` parameter is required.
 <br/>• [`TRANSACTION_BLOCK`](#transaction_block-parameter)': Determines whether the query will be executed inside a transaction block or not. This is useful when creating a database, dropping a database, `VACUUM ANALYZE`ing a database, or any other query statements that cannot be run inside a transaction block. Default: True
-<br/>• [`EDIT`](#edit-parameter): Enables inline editing. To use this, you must specify only one table in your query, and that table must have primary key. Default: False.
+<br/>• [`EDIT`](#edit-parameter): Enables inline editing. To use this, you must specify only one table in your query, and that table must have a primary key. Default: False.
 
 
 
