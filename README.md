@@ -16,6 +16,9 @@ You can get rid of your favorite SQL interface and use an IPython Notebook to ru
 <br/>&emsp;iii. [Multi-threading](#multi-threading)
 <br/>&emsp;iv. [Buttons](#buttons)
 <br/>&emsp;iv. [Inline editing](#inline-editing)
+<br/>&emsp;iv. [Easy-to-read Query Plan Table](#easy-to-read-query-plan-table)
+&emsp;<br/>• [Pipeline](#pipeline)
+<br/>&emsp;iv. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph)
 
 
 ##Most recent feature
@@ -186,17 +189,30 @@ Both output the following table:
 
 All queries are executed on their own thread, so you can run as many queries as your box will allow while concurrently executing python code.
 
-##Buttons
+###Buttons
 
 ![lots_of_buttons](images/buttons.png?raw=true)
 
 Buttons include </br> • Running Explain Analyze on your query </br> • executing query </br> • executing query and returning SQLAlchemy results in a variable </br> • saving to a TSV </br> • stopping query </br> • swithcing between user-defined engines 
 
-##Inline editing
+###Inline editing
 
 Set the `EDIT` parameter to `True` to enable inline editing. As long as you are querying one table and that table has a primary key, then you can edit it using the UI.
 
 ![inline editing](images/Screen Shot 2016-11-08 at 8.32.56 PM.png)
+
+###Easy to read Query Plan table
+This includes a heatmap-like color scale to indicate problem spots in your query.
+
+![query_plan_table](images/query_plan_table.png)
+
+
+###Easy to read Query Plan graph
+This is a sankey graph and also includes a heatmap-like color scale to indicate problem spots in your query, built with D3.js.
+
+
+
+![query_plan_graph](images/query_plan_graph.png)
 
 And that's it. 
 
