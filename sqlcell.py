@@ -249,8 +249,12 @@ def build_node(id_, node, xPos):
                                                                )
                                                       )
                                              ) or '') + ' using ' 
-                                        + str(node.get('Index Name', node.get('Relation Name'))) + ' ' + str(node.get('Alias')or'')
-                                            if node.get('Index Name', node.get('Relation Name')) 
+                                        + str(node.get('Index Name', 
+                                                       node.get('Relation Name',
+                                                               node.get('Schema')))) + ' ' + str(node.get('Alias')or'')
+                                            if node.get('Index Name', 
+                                                        node.get('Relation Name',
+                                                                node.get('Schema'))) 
                                             else '',
         'rows': node.get('Plan', node).get('Plan Rows'),
         'xPos': xPos
