@@ -51,7 +51,7 @@ Just clone the repo and `cp` the `sqlcell_app.py` file to Jupyter's startup dire
 
     $ cd .ipython/profile_default/startup # or wherever your startup directory is
     $ git clone https://github.com/tmthyjames/SQLCell.git
-    $ cp SQLCell/sqlcell_app.py sqlcell_app.py # place app.py in the startup folder so it will get executed
+    $ cp SQLCell/sqlcell_app.py sqlcell_app.py # place sqlcell_app.py in the startup folder so it will get executed
     
 Then in the engine_config.py file, define your connection variables. If you don't add them to engine_config.py, 
 then you'll have to pass a connection string to the ENGINE parameter everytime you use `%%sql`, like so:
