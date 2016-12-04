@@ -141,9 +141,7 @@ Some SQL statements (`VACUUM`, `CREATE <db>`, `DROP <db>`, etc.) must be execute
 
 ###Pass Python variables to SQL
 
-To use SQLAlchemy's named parameters (it's nice to just copy and paste if you use Jupyter for 
-development/editing and don't want to delete all SQLALchemy paramters just to run a query), use
-the PARAMS argument.
+To pass python variables to your queries, just do the following.
 
 	In[7]: # define your parameters in a python cell
 	        name = '1976'
@@ -157,6 +155,18 @@ Now in a `%%sql` cell:
 	        WHERE year = %(year)s
 	            AND period = %(period)s
 	        LIMIT 3
+
+You can also use a colon to indicate your variables:
+
+	In [8]: %%sql DB=bls
+	        SELECT * 
+	        FROM la_unemployment
+	        WHERE year = :year
+	            AND period = :period
+	        LIMIT 3
+		
+Both output the following table:
+		
 <table class="table-striped table-hover" id="tableea46889f-5850-4a5d-9b78-af10c7387e1d" width="100%"><thead><tr><th> </th><th>series_id</th><th>year</th><th>period</th><th>value</th><th>footnote_codes</th></tr></thead><tbody><tr><td>1</td><td>LASST470000000000003</td><td>1976</td><td>M01</td><td>6.2</td><td>None</td></tr><tr><td>2</td><td>LASST470000000000004</td><td>1976</td><td>M01</td><td>111152.0</td><td>None</td></tr><tr><td>3</td><td>LASST470000000000005</td><td>1976</td><td>M01</td><td>1691780.0</td><td>None</td></tr></tbody></table>
 
 ###`psql` metacommands
