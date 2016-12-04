@@ -15,7 +15,7 @@ Run raw SQL in an IPython Notebook without a wrapper. SQLCell Readme with IPytho
 <br/>&emsp;v. [Buttons](#buttons)
 <br/>&emsp;vi. [Inline editing](#inline-editing)
 <br/>&emsp;vii. [Easy-to-read Query Plan Table](#easy-to-read-query-plan-table)
-<br/>&emsp;i. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph)
+<br/>&emsp;viii. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph)
 &emsp;<br/>• [Pipeline](#pipeline)
 <br/>&emsp;i. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph) (Added)
 &emsp;<br/>• To dos
