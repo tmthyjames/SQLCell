@@ -218,7 +218,7 @@ All queries are executed on their own thread, so you can run as many queries as 
 
 ![lots_of_buttons](images/buttons.png?raw=true)
 
-Buttons include </br> • Running Explain Analyze on your query </br> • executing query </br> • executing query and returning SQLAlchemy results in a variable </br> • saving to a TSV </br> • stopping query </br> • swithcing between user-defined engines 
+Buttons include </br> • Viewing Query Plan with d3.js sankey graph </br> • Running Explain Analyze on your query </br> • executing query </br> • executing query and returning SQLAlchemy results in a variable </br> • saving to a TSV </br> • stopping query </br> • swithcing between user-defined engines 
 
 ###Inline editing
 
