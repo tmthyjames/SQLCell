@@ -15,10 +15,10 @@ You can get rid of your favorite SQL interface and use an IPython Notebook to ru
 <br/>&emsp;ii. [`psql` metacommands](#psql-metacommands)
 <br/>&emsp;iii. [Multi-threading](#multi-threading)
 <br/>&emsp;iv. [Buttons](#buttons)
-<br/>&emsp;iv. [Inline editing](#inline-editing)
-<br/>&emsp;iv. [Easy-to-read Query Plan Table](#easy-to-read-query-plan-table)
+<br/>&emsp;v. [Inline editing](#inline-editing)
+<br/>&emsp;vi. [Easy-to-read Query Plan Table](#easy-to-read-query-plan-table)
 &emsp;<br/>• [Pipeline](#pipeline)
-<br/>&emsp;iv. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph)
+<br/>&emsp;i. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph)
 
 
 ##Most recent feature
