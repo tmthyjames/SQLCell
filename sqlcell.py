@@ -555,7 +555,6 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 
                 function switchEngines(engine){
                     var command = "__SQLCell_GLOBAL_VARS__.ENGINE = " + "'" + engines[engine].engine + "'''+db+'''" + "'";
-                    console.log(command);
                     var kernel = IPython.notebook.kernel;
                     kernel.execute(command,{
                         iopub: {
