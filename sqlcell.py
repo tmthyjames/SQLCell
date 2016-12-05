@@ -304,6 +304,30 @@ def load_js_files():
     ))
     return None
 
+def declare_engines(cell, mode):
+    home = expanduser("~")
+    filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engines.py'
+    engines_json = {} if mode == 'new' else __ENGINES_JSON__
+    for n,i in enumerate(cell.split('\n')):
+        eng = i.split('=')
+        name, conn = str(eng[0]), str(eng[1])
+        engines_json[name] = {
+            'engine': conn,
+            'caution_level': 'warning',
+            'order': n
+        }
+    with open(filepath, 'w') as f:
+        f.write(
+            'import os\nimport json\n\n\n__ENGINES_JSON__ = {0}\n\n__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)'.format(engines_json)
+        )
+    return None
+
+def eval_flag(flag):
+    flags = {
+        'declare_engines': declare_engines
+    }
+    return flags[flag]
+
 def _SQL(path, cell, __KERNEL_VARS__):
     """
     Create magic cell function to treat cell text as SQL
@@ -346,7 +370,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         engine = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE + application_name)
 
     args = path.split(' ')
-    for i in args:
+    for n,i in enumerate(args):
         if i:
             glovar = i.split('=')
             if i.startswith('MAKE_GLOBAL'):
@@ -385,8 +409,14 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 if not __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK:
                     __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 0
 
+            elif i.startswith('--'):
+                mode = 'new' if len(args) == 1 else args[n+1]
+                flag = i.replace('--', '')
+                eval_flag(flag)(cell, mode)
+                print 'new engines created'
+                return None
+
             else:
-                exec(i)
                 exec('__SQLCell_GLOBAL_VARS__.'+i)
 
     display(
