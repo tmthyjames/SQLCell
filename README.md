@@ -48,6 +48,14 @@ then you'll have to pass a connection string to the ENGINE parameter everytime y
 
 	In [2]: %%sql ENGINE='postgresql://username:password@host:port/database'
 	        SELECT * FROM table;
+		
+To save the engines:
+
+	%%sql --declare_engines new
+	LOCAL=postgresql://tdobbins:tdobbins@localhost:5432/
+	DEV=postgresql://phTeam:4zHam9MLDC@db.dev.phteam.perceptionhealth.com/
+	
+See more about this option in the [Declare Engines](#declare-engines) section
     
 Now you are ready to ditch pgAdmin or whatever SQL interface you use. Continue reading to see all the available 
 options, like writing results to a CSV, using SQLAlchemy named parameters and more.
