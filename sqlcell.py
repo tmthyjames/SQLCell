@@ -43,6 +43,7 @@ class __SQLCell_GLOBAL_VARS__(object):
     EDIT = False
     ENGINES = __ENGINES_JSON__
     __EXPLAIN_GRAPH__ = False
+    __ENGINES_JSON_DUMPS__ = __ENGINES_JSON_DUMPS__
     DB = default_db
     ISOLATION_LEVEL = 1
     TRANSACTION_BLOCK = True
@@ -320,8 +321,7 @@ def declare_engines(cell, mode):
         f.write(
             'import os\nimport json\n\n\n__ENGINES_JSON__ = {0}\n\n__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)'.format(engines_json)
         )
-    global __ENGINES_JSON_DUMPS__
-    __ENGINES_JSON_DUMPS__ = json.dumps(engines_json)
+    __SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__ = json.dumps(engines_json)
     return None
 
 def eval_flag(flag):
@@ -451,7 +451,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             <div class="table" id="table'''+unique_id+'''"></div>
             <script type="text/Javascript">
             
-                var engines = JSON.parse(`'''+str(__ENGINES_JSON_DUMPS__)+'''`);
+                var engines = JSON.parse(`'''+str(__SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__)+'''`);
                 
                 var sortedEngineKeys = Object.keys(engines).sort(function(a,b){
                     return engines[a].order - engines[b].order;
