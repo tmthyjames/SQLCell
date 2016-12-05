@@ -270,7 +270,7 @@ This includes a heatmap-like color scale to indicate problem spots in your query
 ###Easy to read Query Plan graph
 Currently in dev, this is a sankey graph and also includes a heatmap-like color scale to indicate problem spots in your query, built with D3.js.
 
-![query_plan_graph](images/query_plan_graph.png)
+![query_plan_sankey](images/query_plan_sankey.png)
 
 
 And that's it. 
