@@ -166,6 +166,30 @@ Enables inline editing.
 
 Will display a table where the cells can be clicked on and edited.
 
+###Flags
+<br/>• [`declare_engines`](#declare-engines): Makes adding engines to the engines.py file easy.
+
+####Declare Engines
+All engines should be in this format: `name=connection_string`. For example:
+
+	%%sql --declare_engines new
+	LOCAL=postgresql://tdobbins:tdobbins@localhost:5432/
+	DEV=postgresql://phTeam:4zHam9MLDC@db.dev.phteam.perceptionhealth.com/
+	
+Will create the ENGINES object with only LOCAL and DEV in it. "LOCAL" will be the text that goes on the button, like the following:
+
+![declare_engines_new](images/declare_engines_new.png)
+
+To append new engines to an existing ENGINES object:
+
+	%%sql --declare_engines append
+	LOCAL_test=postgresql://tdobbins:tdobbins@localhost:5432/
+	DEV_test=postgresql://phTeam:4zHam9MLDC@db.dev.phteam.perceptionhealth.com/
+	
+![declare_engines_append](images/declare_engines_append.png)
+
+Where I had the engines LOCAL, DEV, and PROD I now have LOCAL_test and DEV_test also.
+
 
 ###Pass Python variables to SQL
 
@@ -196,32 +220,6 @@ You can also use a colon to indicate your variables:
 Both output the following table:
 		
 <table class="table-striped table-hover" id="tableea46889f-5850-4a5d-9b78-af10c7387e1d" width="100%"><thead><tr><th> </th><th>series_id</th><th>year</th><th>period</th><th>value</th><th>footnote_codes</th></tr></thead><tbody><tr><td>1</td><td>LASST470000000000003</td><td>1976</td><td>M01</td><td>6.2</td><td>None</td></tr><tr><td>2</td><td>LASST470000000000004</td><td>1976</td><td>M01</td><td>111152.0</td><td>None</td></tr><tr><td>3</td><td>LASST470000000000005</td><td>1976</td><td>M01</td><td>1691780.0</td><td>None</td></tr></tbody></table>
-
-###Flags
-
-<br/>• [`declare_engines`](#declare-engines): Makes adding engines to the engines.py file easy.
-
-####Declare Engines
-
-All engines should be in this format: `name=connection_string`. For example:
-
-	%%sql --declare_engines new
-	LOCAL=postgresql://tdobbins:tdobbins@localhost:5432/
-	DEV=postgresql://phTeam:4zHam9MLDC@db.dev.phteam.perceptionhealth.com/
-	
-Will create the ENGINES object with only LOCAL and DEV in it. "LOCAL" will be the text that goes on the button, like the following:
-
-![declare_engines_new](images/declare_engines_new.png)
-
-To append new engines to an existing ENGINES object:
-
-	%%sql --declare_engines append
-	LOCAL_test=postgresql://tdobbins:tdobbins@localhost:5432/
-	DEV_test=postgresql://phTeam:4zHam9MLDC@db.dev.phteam.perceptionhealth.com/
-	
-![declare_engines_append](images/declare_engines_append.png)
-
-Where I had the engines LOCAL, DEV, and PROD I now have LOCAL_test and DEV_test also.
 
 ###`psql` metacommands
 
