@@ -320,6 +320,8 @@ def declare_engines(cell, mode):
         f.write(
             'import os\nimport json\n\n\n__ENGINES_JSON__ = {0}\n\n__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)'.format(engines_json)
         )
+    global __ENGINES_JSON_DUMPS__
+    __ENGINES_JSON_DUMPS__ = json.dumps(engines_json)
     return None
 
 def eval_flag(flag):
