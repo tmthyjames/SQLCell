@@ -436,7 +436,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             </style>
             <div class="row" id="childDiv'''+unique_id+'''">
                 <div class="btn-group col-md-3">
-                    <button id="explain" title="Explain Analyze" onclick="explain('__EXPLAIN_GRAPH__')" type="button" class="btn btn-info btn-sm"><p class="fa fa-code-fork fa-rotate-270"</p></button>
+                    <button id="explain" title="Explain Analyze Graph" onclick="explain('__EXPLAIN_GRAPH__')" type="button" class="btn btn-info btn-sm"><p class="fa fa-code-fork fa-rotate-270"</p></button>
                     <button id="explain" title="Explain Analyze" onclick="explain('__EXPLAIN__')" type="button" class="btn btn-info btn-sm"><p class="fa fa-info-circle"</p></button>
                     <button type="button" title="Execute" onclick="run()" class="btn btn-success btn-sm"><p class="fa fa-play"></p></button>
                     <button type="button" title="Execute and Return Data as Variable" onclick="getData()" class="btn btn-success btn-sm"><p class="">var</p></button>
