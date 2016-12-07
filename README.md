@@ -23,6 +23,7 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 &emsp;<br/>• To dos
 <br/>&emsp;i. Add UI elements to perform basic, common database tasks, such as adding columns, creating tables, etc.
 <br/>&emsp;ii. Need to confirm install process is smooth on non-Mac computers.
+<br/>&emsp;iii. Add support for MySQL commands.
 
 Open issues can be found <a href="https://github.com/tmthyjames/SQLCell/issues">here</a>.
 
