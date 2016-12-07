@@ -48,6 +48,8 @@ class __SQLCell_GLOBAL_VARS__(object):
     ISOLATION_LEVEL = 1
     TRANSACTION_BLOCK = True
     INITIAL_QUERY = True
+    PATH = False
+    RAW = False
 
     logger = logging.getLogger()
     handler = logging.StreamHandler()
@@ -94,7 +96,7 @@ class HTMLTable(list):
         query_plan = False
         for n,row in enumerate(self.data):
             if n == 0:
-                if row:
+                if list(row):
                     query_plan = True if row[0] == 'QUERY PLAN' else False
                     if query_plan:
                         execution_time = re.findall('[0-9]{,}\.[0-9]{,}', str(self.data[-1][0]))
@@ -244,7 +246,9 @@ def build_node(id_, node, xPos):
                                                        node.get('Index Cond', 
                                                                 node.get('Hash Cond', 
                                                                          node.get('One-Time Filter',
-                                                                                 node.get('Recheck Cond')
+                                                                                 node.get('Recheck Cond',
+                                                                                         node.get('Group Key')
+                                                                                         )
                                                                                  )
                                                                         )
                                                                )
@@ -418,6 +422,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 print 'new engines created'
                 return None
 
+            elif i.startswith('PATH'):
+                __SQLCell_GLOBAL_VARS__.PATH = glovar[1]
+
             else:
                 exec('__SQLCell_GLOBAL_VARS__.'+i)
 
@@ -438,7 +445,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             </style>
             <div class="row" id="childDiv'''+unique_id+'''">
                 <div class="btn-group col-md-3">
-                    <button id="explain" title="Explain Analyze" onclick="explain('__EXPLAIN_GRAPH__')" type="button" class="btn btn-info btn-sm"><p class="fa fa-code-fork fa-rotate-270"</p></button>
+                    <button id="explain" title="Explain Analyze Graph" onclick="explain('__EXPLAIN_GRAPH__')" type="button" class="btn btn-info btn-sm"><p class="fa fa-code-fork fa-rotate-270"</p></button>
                     <button id="explain" title="Explain Analyze" onclick="explain('__EXPLAIN__')" type="button" class="btn btn-info btn-sm"><p class="fa fa-info-circle"</p></button>
                     <button type="button" title="Execute" onclick="run()" class="btn btn-success btn-sm"><p class="fa fa-play"></p></button>
                     <button type="button" title="Execute and Return Data as Variable" onclick="getData()" class="btn btn-success btn-sm"><p class="">var</p></button>
@@ -634,6 +641,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
     except exc.OperationalError as e:
         print 'query cancelled...'
         return None
+    except exc.ProgrammingError as e:
+        print e
+        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+        return None
     except exc.ResourceClosedError as e:
         display(
             Javascript(
@@ -678,15 +689,18 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
     df.columns = columns
 
-    if 'PATH' in locals() and PATH:
+    if __SQLCell_GLOBAL_VARS__.PATH:
         try:
-            df.to_csv(PATH)
+            df.to_csv(__SQLCell_GLOBAL_VARS__.PATH)
         except IOError as e:
             print 'ATTENTION:', e
             return None
+        finally:
+            __SQLCell_GLOBAL_VARS__.PATH = False
 
     if 'MAKE_GLOBAL' in locals():
-        exec('__builtin__.' + make_global_param[1] + '=df if \'RAW\' not in locals() else table_data')
+        exec('__builtin__.' + make_global_param[1] + '=df if not __SQLCell_GLOBAL_VARS__.RAW else table_data')
+        __SQLCell_GLOBAL_VARS__.RAW = False
         
 
     str_data = df.to_csv(sep="\t") # for downloading
