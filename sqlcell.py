@@ -43,10 +43,13 @@ class __SQLCell_GLOBAL_VARS__(object):
     EDIT = False
     ENGINES = __ENGINES_JSON__
     __EXPLAIN_GRAPH__ = False
+    __ENGINES_JSON_DUMPS__ = __ENGINES_JSON_DUMPS__
     DB = default_db
     ISOLATION_LEVEL = 1
     TRANSACTION_BLOCK = True
     INITIAL_QUERY = True
+    PATH = False
+    RAW = False
 
     logger = logging.getLogger()
     handler = logging.StreamHandler()
@@ -93,7 +96,7 @@ class HTMLTable(list):
         query_plan = False
         for n,row in enumerate(self.data):
             if n == 0:
-                if row:
+                if list(row):
                     query_plan = True if row[0] == 'QUERY PLAN' else False
                     if query_plan:
                         execution_time = re.findall('[0-9]{,}\.[0-9]{,}', str(self.data[-1][0]))
@@ -243,7 +246,9 @@ def build_node(id_, node, xPos):
                                                        node.get('Index Cond', 
                                                                 node.get('Hash Cond', 
                                                                          node.get('One-Time Filter',
-                                                                                 node.get('Recheck Cond')
+                                                                                 node.get('Recheck Cond',
+                                                                                         node.get('Group Key')
+                                                                                         )
                                                                                  )
                                                                         )
                                                                )
@@ -320,6 +325,7 @@ def declare_engines(cell, mode):
         f.write(
             'import os\nimport json\n\n\n__ENGINES_JSON__ = {0}\n\n__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)'.format(engines_json)
         )
+    __SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__ = json.dumps(engines_json)
     return None
 
 def eval_flag(flag):
@@ -416,6 +422,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 print 'new engines created'
                 return None
 
+            elif i.startswith('PATH'):
+                __SQLCell_GLOBAL_VARS__.PATH = glovar[1]
+
             else:
                 exec('__SQLCell_GLOBAL_VARS__.'+i)
 
@@ -449,7 +458,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             <div class="table" id="table'''+unique_id+'''"></div>
             <script type="text/Javascript">
             
-                var engines = JSON.parse(`'''+str(__ENGINES_JSON_DUMPS__)+'''`);
+                var engines = JSON.parse(`'''+str(__SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__)+'''`);
                 
                 var sortedEngineKeys = Object.keys(engines).sort(function(a,b){
                     return engines[a].order - engines[b].order;
@@ -632,6 +641,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
     except exc.OperationalError as e:
         print 'query cancelled...'
         return None
+    except exc.ProgrammingError as e:
+        print e
+        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+        return None
     except exc.ResourceClosedError as e:
         display(
             Javascript(
@@ -676,15 +689,18 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
     df.columns = columns
 
-    if 'PATH' in locals() and PATH:
+    if __SQLCell_GLOBAL_VARS__.PATH:
         try:
-            df.to_csv(PATH)
+            df.to_csv(__SQLCell_GLOBAL_VARS__.PATH)
         except IOError as e:
             print 'ATTENTION:', e
             return None
+        finally:
+            __SQLCell_GLOBAL_VARS__.PATH = False
 
     if 'MAKE_GLOBAL' in locals():
-        exec('__builtin__.' + make_global_param[1] + '=df if \'RAW\' not in locals() else table_data')
+        exec('__builtin__.' + make_global_param[1] + '=df if not __SQLCell_GLOBAL_VARS__.RAW else table_data')
+        __SQLCell_GLOBAL_VARS__.RAW = False
         
 
     str_data = df.to_csv(sep="\t") # for downloading
