@@ -39,6 +39,7 @@ class __KERNEL_VARS__(object):
 class __SQLCell_GLOBAL_VARS__(object):
 
     jupyter_id = jupyter_id
+    ENGINE = str(engine.url)
     engine = str(engine.url)
     EDIT = False
     ENGINES = __ENGINES_JSON__
@@ -309,7 +310,7 @@ def load_js_files():
     ))
     return None
 
-def declare_engines(cell, mode):
+def declare_engines(cell, mode='new', **kwargs):
     home = expanduser("~")
     filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engines.py'
     engines_json = {} if mode == 'new' else __ENGINES_JSON__
@@ -326,11 +327,25 @@ def declare_engines(cell, mode):
             'import os\nimport json\n\n\n__ENGINES_JSON__ = {0}\n\n__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)'.format(engines_json)
         )
     __SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__ = json.dumps(engines_json)
+    print 'new engines created'
     return None
+
+def pg_dump(cell, **kwargs):
+    conn_str = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE).url
+    p = subprocess.Popen(
+        ['pg_dump'] + cell.split(' ') + ['-h', conn_str.host, '-U', conn_str.username], 
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    p.stdin.write(conn_str.password)
+    p.stdin.flush()
+    stdout, stderr = p.communicate()
+    rc = p.returncode
+    return stdout or stderr
 
 def eval_flag(flag):
     flags = {
-        'declare_engines': declare_engines
+        'declare_engines': declare_engines,
+        'pg_dump': pg_dump
     }
     return flags[flag]
 
@@ -388,7 +403,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 db = i.replace('DB=', '')
                 if db != __SQLCell_GLOBAL_VARS__.DB:
                     __SQLCell_GLOBAL_VARS__.DB = db
-                    engine = engine if 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) else create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
+                    engine = create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
 
                     home = expanduser("~")
                     filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
@@ -399,6 +414,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
                     exec('__SQLCell_GLOBAL_VARS__.'+db_param[0] + '="' + db_param[1] + '"')
                     exec('__SQLCell_GLOBAL_VARS__.engine ="'+str(engine.url)+'"')
+                    exec('__SQLCell_GLOBAL_VARS__.ENGINE ="'+str(engine.url)+'"')
 
             elif i.startswith('ENGINE'):
                 exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
@@ -415,16 +431,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 if not __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK:
                     __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 0
 
-            elif i.startswith('--'):
-                mode = 'new' if len(args) == 1 else args[n+1]
-                flag = i.replace('--', '')
-                eval_flag(flag)(cell, mode)
-                print 'new engines created'
-                return None
-
             elif i.startswith('PATH'):
                 __SQLCell_GLOBAL_VARS__.PATH = glovar[1]
-
+            elif i.startswith('--'):
+                pass
             else:
                 exec('__SQLCell_GLOBAL_VARS__.'+i)
 
@@ -592,6 +602,30 @@ def _SQL(path, cell, __KERNEL_VARS__):
         )
     )
 
+    for i in args:
+        if i.startswith('--'):
+            mode = 'new' if len(args) == 1 else args[n+1]
+            flag = i.replace('--', '')
+            try:
+                flag_output = eval_flag(flag)(cell, mode=mode)
+                flag_output_html = flag_output.replace('\n', '<br/>').replace('    ', '&emsp;')
+                display(
+                    Javascript(
+                        """
+                            $('#table{id}').append('{msg}');
+                            $('#table{id}').append(`{flag_output}`);
+                        """.format(
+                        id=unique_id, 
+                        flag_output=flag_output_html,
+                        msg=__SQLCell_GLOBAL_VARS__.ENGINE) # % (flag_output.replace('\n', '<br/>').replace('    ', '&emsp;'))
+                    )
+                )
+            except Exception as e:
+                print e
+            finally:
+                __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+            return None
+
     psql_command = False
     if cell.startswith('\\'):
         psql_command = True
@@ -643,7 +677,6 @@ def _SQL(path, cell, __KERNEL_VARS__):
         return None
     except exc.ProgrammingError as e:
         print e
-        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
         return None
     except exc.ResourceClosedError as e:
         display(
@@ -659,6 +692,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         )
         return None
     finally:
+        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
         __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
         __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
         connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
