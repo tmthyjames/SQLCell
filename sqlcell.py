@@ -625,7 +625,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
                             $('#saveData{id}').on('click', function(){{
                                 if (!$(this).hasClass('disabled')){{
-                                    saveData(`{flag_output}`, 'test.tsv');
+                                    saveData(`{flag_output}`, 'create.txt');
                                 }}
                             }});
                         """.format(
