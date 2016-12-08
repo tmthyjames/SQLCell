@@ -20,6 +20,7 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 <br/>&emsp;x. [Switch Engines](#switch-engines) (To be documented...)
 &emsp;<br/>• [Pipeline](#pipeline)
 <br/>&emsp;i. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph) (Added)
+<br/>&emsp;ii. many `pg_dump` commands to be supported
 &emsp;<br/>• To dos
 <br/>&emsp;i. Add UI elements to perform basic, common database tasks, such as adding columns, creating tables, etc.
 <br/>&emsp;ii. Need to confirm install process is smooth on non-Mac computers.
