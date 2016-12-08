@@ -20,7 +20,7 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 <br/>&emsp;x. [Switch Engines](#switch-engines) (To be documented...)
 &emsp;<br/>• [Pipeline](#pipeline)
 <br/>&emsp;i. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph) (Added)
-<br/>&emsp;ii. many `pg_dump` commands to be supported
+<br/>&emsp;ii. [`pg_dump` support](#pg_dump-support)
 &emsp;<br/>• To dos
 <br/>&emsp;i. Add UI elements to perform basic, common database tasks, such as adding columns, creating tables, etc.
 <br/>&emsp;ii. Need to confirm install process is smooth on non-Mac computers.
@@ -274,6 +274,47 @@ This includes a heatmap-like color scale to indicate problem spots in your query
 Currently in dev, this is a sankey graph and also includes a heatmap-like color scale to indicate problem spots in your query, built with D3.js.
 
 ![query_plan_sankey](images/query_plan_graph_diverse.png)
+
+###`pg_dump` support
+
+	In[17]: %%sql --pg_dump
+	        -t nba sports --schema-only
+
+Will output the following:
+
+	SET statement_timeout = 0;
+	SET lock_timeout = 0;
+	SET client_encoding = 'UTF8';
+	SET standard_conforming_strings = on;
+	SET check_function_bodies = false;
+	SET client_min_messages = warning;
+	SET row_security = off;
+	SET search_path = public, pg_catalog;
+	SET default_tablespace = '';
+	SET default_with_oids = false;
+	--
+	-- Name: nba; Type: TABLE; Schema: public; Owner: postgres
+	--
+	CREATE TABLE nba (
+	    dateof date,
+	    team character varying(5),
+	    opp character varying(5),
+	    pts bigint,
+	    fg integer,
+	    fg_att integer,
+	    ft integer,
+	    ft_att integer,
+	    fg3 integer,
+	    fg3_att integer,
+	    off_rebounds integer,
+	    def_rebounds integer,
+	    asst integer,
+	    blks integer,
+	    fouls integer,
+	    stls integer,
+	    turnovers integer
+	);
+	ALTER TABLE nba OWNER TO postgres;
 
 
 And that's it. 
