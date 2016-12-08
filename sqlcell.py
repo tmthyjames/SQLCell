@@ -332,8 +332,13 @@ def declare_engines(cell, mode='new', **kwargs):
 
 def pg_dump(cell, **kwargs):
     conn_str = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE).url
+    if not cell.startswith('-'):
+        args = cell.split(' ')
+        pg_dump_cmds = ['pg_dump', '-t', args[0], args[1], '--schema-only', '-h', conn_str.host, '-U', conn_str.username]
+    else:
+        pg_dump_cmds = ['pg_dump'] + cell.split(' ') + ['-h', conn_str.host, '-U', conn_str.username]
     p = subprocess.Popen(
-        ['pg_dump'] + cell.split(' ') + ['-h', conn_str.host, '-U', conn_str.username], 
+        pg_dump_cmds, 
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     p.stdin.write(conn_str.password)
@@ -608,16 +613,27 @@ def _SQL(path, cell, __KERNEL_VARS__):
             flag = i.replace('--', '')
             try:
                 flag_output = eval_flag(flag)(cell, mode=mode)
-                flag_output_html = flag_output.replace('\n', '<br/>').replace('    ', '&emsp;')
+                flag_output_html = flag_output.replace('\n', '<br/>').replace('    ', '&nbsp;&nbsp;&nbsp;&nbsp;')
                 display(
                     Javascript(
                         """
                             $('#table{id}').append('{msg}');
-                            $('#table{id}').append(`{flag_output}`);
+                            $('#table{id}').append(`{flag_output_html}`);
+
+                            $('#saveData{id}').removeClass('disabled');
+                            $("#cancelQuery{id}").addClass('disabled')
+
+                            $('#saveData{id}').on('click', function(){{
+                                if (!$(this).hasClass('disabled')){{
+                                    saveData(`{flag_output}`, 'test.tsv');
+                                }}
+                            }});
                         """.format(
-                        id=unique_id, 
-                        flag_output=flag_output_html,
-                        msg=__SQLCell_GLOBAL_VARS__.ENGINE) # % (flag_output.replace('\n', '<br/>').replace('    ', '&emsp;'))
+                            id=unique_id, 
+                            flag_output_html=flag_output_html,
+                            flag_output=flag_output,
+                            msg=__SQLCell_GLOBAL_VARS__.ENGINE
+                        )
                     )
                 )
             except Exception as e:
