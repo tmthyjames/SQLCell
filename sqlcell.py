@@ -332,11 +332,11 @@ def declare_engines(cell, mode='new', **kwargs):
 
 def pg_dump(cell, **kwargs):
     conn_str = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE).url
+    args = cell.strip().split(' ')
     if not cell.startswith('-'):
-        args = cell.split(' ')
         pg_dump_cmds = ['pg_dump', '-t', args[0], args[1], '--schema-only', '-h', conn_str.host, '-U', conn_str.username]
     else:
-        pg_dump_cmds = ['pg_dump'] + cell.split(' ') + ['-h', conn_str.host, '-U', conn_str.username]
+        pg_dump_cmds = ['pg_dump'] + args + ['-h', conn_str.host, '-U', conn_str.username]
     p = subprocess.Popen(
         pg_dump_cmds, 
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
