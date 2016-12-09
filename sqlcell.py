@@ -40,7 +40,7 @@ class __SQLCell_GLOBAL_VARS__(object):
 
     jupyter_id = jupyter_id
     ENGINE = str(engine.url)
-    engine = str(engine.url)
+    engine = engine
     EDIT = False
     ENGINES = __ENGINES_JSON__
     __EXPLAIN_GRAPH__ = False
@@ -336,7 +336,7 @@ def pg_dump(cell, **kwargs):
     if not cell.startswith('-'):
         pg_dump_cmds = ['pg_dump', '-t', args[0], args[1], '--schema-only', '-h', conn_str.host, '-U', conn_str.username]
     else:
-        pg_dump_cmds = ['pg_dump'] + args + ['-h', conn_str.host, '-U', conn_str.username]
+        pg_dump_cmds = ['pg_dump'] + args + ['-h', conn_str.host, '-U', conn_str.username, '-W']
     p = subprocess.Popen(
         pg_dump_cmds, 
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -406,20 +406,20 @@ def _SQL(path, cell, __KERNEL_VARS__):
             elif i.startswith('DB'):
                 db_param = glovar
                 db = i.replace('DB=', '')
-                if db != __SQLCell_GLOBAL_VARS__.DB:
-                    __SQLCell_GLOBAL_VARS__.DB = db
-                    engine = create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
+                # if db != __SQLCell_GLOBAL_VARS__.DB: # revisit
+                __SQLCell_GLOBAL_VARS__.DB = db
+                engine = create_engine(str(engine.url)+application_name)
 
-                    home = expanduser("~")
-                    filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
+                home = expanduser("~")
+                filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
 
-                    for line in fileinput.FileInput(filepath,inplace=1):
-                        line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
-                        print line,
+                for line in fileinput.FileInput(filepath,inplace=1):
+                    line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
+                    print line,
 
-                    exec('__SQLCell_GLOBAL_VARS__.'+db_param[0] + '="' + db_param[1] + '"')
-                    exec('__SQLCell_GLOBAL_VARS__.engine ="'+str(engine.url)+'"')
-                    exec('__SQLCell_GLOBAL_VARS__.ENGINE ="'+str(engine.url)+'"')
+                exec('__SQLCell_GLOBAL_VARS__.'+db_param[0] + '="' + db_param[1] + '"')
+                # exec('__SQLCell_GLOBAL_VARS__.engine ="'+str(engine.url)+'"')
+                exec('__SQLCell_GLOBAL_VARS__.ENGINE ="'+str(engine.url)+'"')
 
             elif i.startswith('ENGINE'):
                 exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
@@ -645,22 +645,18 @@ def _SQL(path, cell, __KERNEL_VARS__):
     psql_command = False
     if cell.startswith('\\'):
         psql_command = True
-        db_name = db if isinstance(db, (str, unicode)) else __ENGINE__.url.database
+        db_name = db if isinstance(db, (str, unicode)) else engine.url.database
 
-        commands = ''
-        for i in cell.strip().split(';'):
-            if i:
-                commands += ' -c ' + '"'+i+'" '
-        commands = 'psql ' + db_name + commands + '-H'
-
-    matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s|:[a-zA-Z_][a-zA-Z0-9_]{,}', cell)
-    
-    connection = engine.connect()
-    connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
     t0 = time.time()
 
     try:
         if not psql_command:
+            matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s|:[a-zA-Z_][a-zA-Z0-9_]{,}', cell)
+            connection = engine.connect()
+            __SQLCell_GLOBAL_VARS__.engine = engine
+            __SQLCell_GLOBAL_VARS__.DB = engine.url.database
+            connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
+
             data = connection.execute(cell, reduce(build_dict, matches, {}))
             t1 = time.time() - t0
             columns = data.keys()
@@ -679,12 +675,21 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     return None
             df = to_table(table_data)
         else:
-            output = subprocess.check_output(commands, shell=True)
+            conn_str = engine.url
+            psql_cmds = ['psql', '-h', conn_str.host, '-U', conn_str.username, '-W', db_name, '-c', cell.strip(), '-H']
+            p = subprocess.Popen(
+                psql_cmds, 
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            p.stdin.write(conn_str.password)
+            p.stdin.flush()
+            stdout, stderr = p.communicate()
+            rc = p.returncode
             t1 = time.time() - t0
-            if '<table border=' not in output: # if tabular, psql will send back as a table because of the -H option
-                print output
+            if '<table border=' not in stdout: # if tabular, psql will send back as a table because of the -H option
+                print stdout
                 return None 
-            data = pd.read_html(output, header=0)[0]
+            data = pd.read_html(stdout, header=0)[0]
             columns = data.keys()
             table_data = [i for i in data.values.tolist()]
             df = data
@@ -711,7 +716,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
         __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
         __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
         __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
-        connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
+        if not psql_command:
+            connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
     
     t1 = time.time() - t0
     t2 = time.time()
