@@ -411,7 +411,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 __SQLCell_GLOBAL_VARS__.DB = db
                 # engine = create_engine(str(engine.url)+application_name)
                 conn_string = engine.url
-                engine = create_engine(conn_string.drivername+"://"+conn_string.username+":"+conn_string.password+"@"+conn_string.host+":"+str(conn_string.port)+"/"+db+application_name)
+                engine = create_engine(conn_string.drivername+"://"+conn_string.username+":"+conn_string.password+"@"+conn_string.host+":"+str(conn_string.port or 5432)+"/"+db+application_name)
 
                 home = expanduser("~")
                 filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
@@ -475,6 +475,45 @@ def _SQL(path, cell, __KERNEL_VARS__):
             </div>
             <div class="table" id="table'''+unique_id+'''"></div>
             <script type="text/Javascript">
+
+                (function($) {
+                    var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
+
+                    $.fn.attrchange = function(callback) {
+                        if (MutationObserver) {
+                            var options = {
+                                subtree: false,
+                                attributes: true
+                            };
+
+                            var observer = new MutationObserver(function(mutations) {
+                                mutations.forEach(function(e) {
+                                    callback.call(e.target, e.attributeName);
+                                });
+                            });
+
+                            return this.each(function() {
+                                observer.observe(this, options);
+                            });
+
+                        }
+                    }
+                } )(jQuery);
+                $("#childDiv'''+unique_id+'''").parents('.code_cell').attrchange(function(attrName){
+                    if (attrName=='class'){
+                        if ($(this).hasClass('unselected')){
+                            $("#childDiv'''+unique_id+'''").find('button').each(function(i, obj){
+                                $(obj).addClass('disabled');
+                            });
+                        } else if ($(this).hasClass('selected')){
+                            $("#childDiv'''+unique_id+'''").find('button').each(function(i, obj){
+                                $(obj).removeClass('disabled');
+                            });
+                        }
+                    }
+                });
+
+
             
                 var engines = JSON.parse(`'''+str(__SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__)+'''`);
                 
@@ -641,7 +680,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 )
             except Exception as e:
                 print e
-            finally:
+            # finally:
                 __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
             return None
 
@@ -658,14 +697,16 @@ def _SQL(path, cell, __KERNEL_VARS__):
         __SQLCell_GLOBAL_VARS__.engine = engine
         __SQLCell_GLOBAL_VARS__.DB = engine.url.database
         connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
-        
+
         try:
             data = connection.execute(cell, reduce(build_dict, matches, {}))
         except exc.OperationalError as e:
             print 'query cancelled...'
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
             return None
         except exc.ProgrammingError as e:
             print e
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
             return None
         except exc.ResourceClosedError as e:
             display(
@@ -679,9 +720,11 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
                 )
             )
-            return None
-        finally:
             __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+            return None
+        except Exception as e:
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+        finally:
             __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
             __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
             connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
@@ -955,7 +998,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
             )
         except KeyError as e:
             print "No visual available for this query"
-        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+        finally:
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
         return None
 
     if __SQLCell_GLOBAL_VARS__.EDIT:
