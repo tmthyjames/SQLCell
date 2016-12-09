@@ -30,6 +30,7 @@ application_name = '?application_name='+jupyter_id
 
 
 engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db+application_name)
+conn_string = engine.url
 
 
 class __KERNEL_VARS__(object):
@@ -408,7 +409,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 db = i.replace('DB=', '')
                 # if db != __SQLCell_GLOBAL_VARS__.DB: # revisit
                 __SQLCell_GLOBAL_VARS__.DB = db
-                engine = create_engine(str(engine.url)+application_name)
+                # engine = create_engine(str(engine.url)+application_name)
+                conn_string = engine.url
+                engine = create_engine(conn_string.drivername+"://"+conn_string.username+":"+conn_string.password+"@"+conn_string.host+":"+str(conn_string.port)+"/"+db+application_name)
 
                 home = expanduser("~")
                 filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
@@ -649,75 +652,75 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
     t0 = time.time()
 
-    try:
-        if not psql_command:
-            matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s|:[a-zA-Z_][a-zA-Z0-9_]{,}', cell)
-            connection = engine.connect()
-            __SQLCell_GLOBAL_VARS__.engine = engine
-            __SQLCell_GLOBAL_VARS__.DB = engine.url.database
+    if not psql_command:
+        matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s|:[a-zA-Z_][a-zA-Z0-9_]{,}', cell)
+        connection = engine.connect()
+        __SQLCell_GLOBAL_VARS__.engine = engine
+        __SQLCell_GLOBAL_VARS__.DB = engine.url.database
+        connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
+        
+        try:
+            data = connection.execute(cell, reduce(build_dict, matches, {}))
+        except exc.OperationalError as e:
+            print 'query cancelled...'
+            return None
+        except exc.ProgrammingError as e:
+            print e
+            return None
+        except exc.ResourceClosedError as e:
+            display(
+                Javascript(
+                    """
+                        $('#tableData"""+unique_id+"""').append(
+                            'Query finished...'
+                            +'<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
+                            +'DB: %s | Host: %s'
+                        )
+                    """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
+                )
+            )
+            return None
+        finally:
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+            __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
+            __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
             connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
 
-            data = connection.execute(cell, reduce(build_dict, matches, {}))
-            t1 = time.time() - t0
-            columns = data.keys()
-            table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
-            if 'DISPLAY' in locals():
-                if not DISPLAY:
-                    if 'MAKE_GLOBAL' in locals():
-                        exec('__builtin__.' + glovar[1] + '=table_data')
-                    else:
-                        exec('__builtin__.DATA=table_data')
-                        glovar = ['', 'DATA']
-                    print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
-                    print 'Rows:', len(table_data), '|',
-                    print 'DB:', engine.url.database, '| Host:', engine.url.host
-                    print 'data not displayed but captured in variable: ' + glovar[1]
-                    return None
-            df = to_table(table_data)
-        else:
-            conn_str = engine.url
-            psql_cmds = ['psql', '-h', conn_str.host, '-U', conn_str.username, '-W', db_name, '-c', cell.strip(), '-H']
-            p = subprocess.Popen(
-                psql_cmds, 
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-            p.stdin.write(conn_str.password)
-            p.stdin.flush()
-            stdout, stderr = p.communicate()
-            rc = p.returncode
-            t1 = time.time() - t0
-            if '<table border=' not in stdout: # if tabular, psql will send back as a table because of the -H option
-                print stdout
-                return None 
-            data = pd.read_html(stdout, header=0)[0]
-            columns = data.keys()
-            table_data = [i for i in data.values.tolist()]
-            df = data
-    except exc.OperationalError as e:
-        print 'query cancelled...'
-        return None
-    except exc.ProgrammingError as e:
-        print e
-        return None
-    except exc.ResourceClosedError as e:
-        display(
-            Javascript(
-                """
-                    $('#tableData"""+unique_id+"""').append(
-                        'Query finished...'
-                        +'<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
-                        +'DB: %s | Host: %s'
-                    )
-                """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
-            )
+        t1 = time.time() - t0
+        columns = data.keys()
+        table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
+        if 'DISPLAY' in locals():
+            if not DISPLAY:
+                if 'MAKE_GLOBAL' in locals():
+                    exec('__builtin__.' + glovar[1] + '=table_data')
+                else:
+                    exec('__builtin__.DATA=table_data')
+                    glovar = ['', 'DATA']
+                print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
+                print 'Rows:', len(table_data), '|',
+                print 'DB:', engine.url.database, '| Host:', engine.url.host
+                print 'data not displayed but captured in variable: ' + glovar[1]
+                return None
+        df = to_table(table_data)
+    else:
+        conn_str = engine.url
+        psql_cmds = ['psql', '-h', conn_str.host, '-U', conn_str.username, '-W', db_name, '-c', cell.strip(), '-H']
+        p = subprocess.Popen(
+            psql_cmds, 
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
-        return None
-    finally:
-        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-        __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
-        __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
-        if not psql_command:
-            connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
+        p.stdin.write(conn_str.password)
+        p.stdin.flush()
+        stdout, stderr = p.communicate()
+        rc = p.returncode
+        t1 = time.time() - t0
+        if '<table border=' not in stdout: # if tabular, psql will send back as a table because of the -H option
+            print stdout
+            return None 
+        data = pd.read_html(stdout, header=0)[0]
+        columns = data.keys()
+        table_data = [i for i in data.values.tolist()]
+        df = data
     
     t1 = time.time() - t0
     t2 = time.time()
