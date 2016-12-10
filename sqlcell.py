@@ -30,6 +30,7 @@ application_name = '?application_name='+jupyter_id
 
 
 engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db+application_name)
+conn_string = engine.url
 
 
 class __KERNEL_VARS__(object):
@@ -39,7 +40,8 @@ class __KERNEL_VARS__(object):
 class __SQLCell_GLOBAL_VARS__(object):
 
     jupyter_id = jupyter_id
-    engine = str(engine.url)
+    ENGINE = str(engine.url)
+    engine = engine
     EDIT = False
     ENGINES = __ENGINES_JSON__
     __EXPLAIN_GRAPH__ = False
@@ -309,7 +311,7 @@ def load_js_files():
     ))
     return None
 
-def declare_engines(cell, mode):
+def declare_engines(cell, mode='new', **kwargs):
     home = expanduser("~")
     filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engines.py'
     engines_json = {} if mode == 'new' else __ENGINES_JSON__
@@ -326,11 +328,30 @@ def declare_engines(cell, mode):
             'import os\nimport json\n\n\n__ENGINES_JSON__ = {0}\n\n__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)'.format(engines_json)
         )
     __SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__ = json.dumps(engines_json)
+    print 'new engines created'
     return None
+
+def pg_dump(cell, **kwargs):
+    conn_str = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE).url
+    args = cell.strip().split(' ')
+    if not cell.startswith('-'):
+        pg_dump_cmds = ['pg_dump', '-t', args[0], args[1], '--schema-only', '-h', conn_str.host, '-U', conn_str.username]
+    else:
+        pg_dump_cmds = ['pg_dump'] + args + ['-h', conn_str.host, '-U', conn_str.username, '-W']
+    p = subprocess.Popen(
+        pg_dump_cmds, 
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    p.stdin.write(conn_str.password)
+    p.stdin.flush()
+    stdout, stderr = p.communicate()
+    rc = p.returncode
+    return stdout or stderr
 
 def eval_flag(flag):
     flags = {
-        'declare_engines': declare_engines
+        'declare_engines': declare_engines,
+        'pg_dump': pg_dump
     }
     return flags[flag]
 
@@ -386,19 +407,22 @@ def _SQL(path, cell, __KERNEL_VARS__):
             elif i.startswith('DB'):
                 db_param = glovar
                 db = i.replace('DB=', '')
-                if db != __SQLCell_GLOBAL_VARS__.DB:
-                    __SQLCell_GLOBAL_VARS__.DB = db
-                    engine = engine if 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) else create_engine(driver+"://"+username+":"+password+"@"+host+":"+port+"/"+db+application_name)
+                # if db != __SQLCell_GLOBAL_VARS__.DB: # revisit
+                __SQLCell_GLOBAL_VARS__.DB = db
+                # engine = create_engine(str(engine.url)+application_name)
+                conn_string = engine.url
+                engine = create_engine(conn_string.drivername+"://"+conn_string.username+":"+conn_string.password+"@"+conn_string.host+":"+str(conn_string.port or 5432)+"/"+db+application_name)
 
-                    home = expanduser("~")
-                    filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
+                home = expanduser("~")
+                filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
 
-                    for line in fileinput.FileInput(filepath,inplace=1):
-                        line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
-                        print line,
+                for line in fileinput.FileInput(filepath,inplace=1):
+                    line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
+                    print line,
 
-                    exec('__SQLCell_GLOBAL_VARS__.'+db_param[0] + '="' + db_param[1] + '"')
-                    exec('__SQLCell_GLOBAL_VARS__.engine ="'+str(engine.url)+'"')
+                exec('__SQLCell_GLOBAL_VARS__.'+db_param[0] + '="' + db_param[1] + '"')
+                # exec('__SQLCell_GLOBAL_VARS__.engine ="'+str(engine.url)+'"')
+                exec('__SQLCell_GLOBAL_VARS__.ENGINE ="'+str(engine.url)+'"')
 
             elif i.startswith('ENGINE'):
                 exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
@@ -415,16 +439,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 if not __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK:
                     __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 0
 
-            elif i.startswith('--'):
-                mode = 'new' if len(args) == 1 else args[n+1]
-                flag = i.replace('--', '')
-                eval_flag(flag)(cell, mode)
-                print 'new engines created'
-                return None
-
             elif i.startswith('PATH'):
                 __SQLCell_GLOBAL_VARS__.PATH = glovar[1]
-
+            elif i.startswith('--'):
+                pass
             else:
                 exec('__SQLCell_GLOBAL_VARS__.'+i)
 
@@ -457,6 +475,45 @@ def _SQL(path, cell, __KERNEL_VARS__):
             </div>
             <div class="table" id="table'''+unique_id+'''"></div>
             <script type="text/Javascript">
+
+                (function($) {
+                    var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
+
+                    $.fn.attrchange = function(callback) {
+                        if (MutationObserver) {
+                            var options = {
+                                subtree: false,
+                                attributes: true
+                            };
+
+                            var observer = new MutationObserver(function(mutations) {
+                                mutations.forEach(function(e) {
+                                    callback.call(e.target, e.attributeName);
+                                });
+                            });
+
+                            return this.each(function() {
+                                observer.observe(this, options);
+                            });
+
+                        }
+                    }
+                } )(jQuery);
+                $("#childDiv'''+unique_id+'''").parents('.code_cell').attrchange(function(attrName){
+                    if (attrName=='class'){
+                        if ($(this).hasClass('unselected')){
+                            $("#childDiv'''+unique_id+'''").find('button').each(function(i, obj){
+                                $(obj).addClass('disabled');
+                            });
+                        } else if ($(this).hasClass('selected')){
+                            $("#childDiv'''+unique_id+'''").find('button').each(function(i, obj){
+                                $(obj).removeClass('disabled');
+                            });
+                        }
+                    }
+                });
+
+
             
                 var engines = JSON.parse(`'''+str(__SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__)+'''`);
                 
@@ -592,76 +649,132 @@ def _SQL(path, cell, __KERNEL_VARS__):
         )
     )
 
+    for i in args:
+        if i.startswith('--'):
+            mode = 'new' if len(args) == 1 else args[n+1]
+            flag = i.replace('--', '')
+            try:
+                flag_output = eval_flag(flag)(cell, mode=mode)
+                flag_output_html = flag_output.replace('\n', '<br/>').replace('    ', '&nbsp;&nbsp;&nbsp;&nbsp;')
+                display(
+                    Javascript(
+                        """
+                            $('#table{id}').append('{msg}');
+                            $('#table{id}').append(`{flag_output_html}`);
+
+                            $('#saveData{id}').removeClass('disabled');
+                            $("#cancelQuery{id}").addClass('disabled')
+
+                            $('#saveData{id}').on('click', function(){{
+                                if (!$(this).hasClass('disabled')){{
+                                    saveData(`{flag_output}`, 'create.txt');
+                                }}
+                            }});
+                        """.format(
+                            id=unique_id, 
+                            flag_output_html=flag_output_html,
+                            flag_output=flag_output,
+                            msg=__SQLCell_GLOBAL_VARS__.ENGINE
+                        )
+                    )
+                )
+            except Exception as e:
+                print e
+            # finally:
+                __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+            return None
+
     psql_command = False
     if cell.startswith('\\'):
         psql_command = True
-        db_name = db if isinstance(db, (str, unicode)) else __ENGINE__.url.database
+        db_name = db if isinstance(db, (str, unicode)) else engine.url.database
 
-        commands = ''
-        for i in cell.strip().split(';'):
-            if i:
-                commands += ' -c ' + '"'+i+'" '
-        commands = 'psql ' + db_name + commands + '-H'
-
-    matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s|:[a-zA-Z_][a-zA-Z0-9_]{,}', cell)
-    
-    connection = engine.connect()
-    connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
     t0 = time.time()
 
-    try:
-        if not psql_command:
-            data = connection.execute(cell, reduce(build_dict, matches, {}))
-            t1 = time.time() - t0
-            columns = data.keys()
-            table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
-            if 'DISPLAY' in locals():
-                if not DISPLAY:
-                    if 'MAKE_GLOBAL' in locals():
-                        exec('__builtin__.' + glovar[1] + '=table_data')
-                    else:
-                        exec('__builtin__.DATA=table_data')
-                        glovar = ['', 'DATA']
-                    print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
-                    print 'Rows:', len(table_data), '|',
-                    print 'DB:', engine.url.database, '| Host:', engine.url.host
-                    print 'data not displayed but captured in variable: ' + glovar[1]
-                    return None
-            df = to_table(table_data)
-        else:
-            output = subprocess.check_output(commands, shell=True)
-            t1 = time.time() - t0
-            if '<table border=' not in output: # if tabular, psql will send back as a table because of the -H option
-                print output
-                return None 
-            data = pd.read_html(output, header=0)[0]
-            columns = data.keys()
-            table_data = [i for i in data.values.tolist()]
-            df = data
-    except exc.OperationalError as e:
-        print 'query cancelled...'
-        return None
-    except exc.ProgrammingError as e:
-        print e
-        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-        return None
-    except exc.ResourceClosedError as e:
-        display(
-            Javascript(
-                """
-                    $('#tableData"""+unique_id+"""').append(
-                        'Query finished...'
-                        +'<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
-                        +'DB: %s | Host: %s'
-                    )
-                """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
-            )
-        )
-        return None
-    finally:
-        __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
-        __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
+    if not psql_command:
+        matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s|:[a-zA-Z_][a-zA-Z0-9_]{,}', cell)
+        connection = engine.connect()
+        __SQLCell_GLOBAL_VARS__.engine = engine
+        __SQLCell_GLOBAL_VARS__.DB = engine.url.database
         connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
+
+        try:
+            data = connection.execute(cell, reduce(build_dict, matches, {}))
+        except exc.OperationalError as e:
+            print 'query cancelled...'
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+            return None
+        except exc.ProgrammingError as e:
+            print e
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+            return None
+        except exc.ResourceClosedError as e:
+            display(
+                Javascript(
+                    """
+                        $('#tableData"""+unique_id+"""').append(
+                            'Query finished...'
+                            +'<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
+                            +'DB: %s | Host: %s'
+                        )
+                    """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
+                )
+            )
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+            return None
+        except Exception as e:
+            print e
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+        finally:
+            __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
+            __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
+            connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
+
+        t1 = time.time() - t0
+        columns = data.keys()
+        table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
+        if 'DISPLAY' in locals():
+            if not DISPLAY:
+                if 'MAKE_GLOBAL' in locals():
+                    exec('__builtin__.' + glovar[1] + '=table_data')
+                else:
+                    exec('__builtin__.DATA=table_data')
+                    glovar = ['', 'DATA']
+                print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
+                print 'Rows:', len(table_data), '|',
+                print 'DB:', engine.url.database, '| Host:', engine.url.host
+                print 'data not displayed but captured in variable: ' + glovar[1]
+                return None
+        df = to_table(table_data)
+    else:
+        conn_str = engine.url
+        psql_cmds = ['psql', '-h', conn_str.host, '-U', conn_str.username, '-W', db_name, '-c', cell.strip(), '-H']
+        p = subprocess.Popen(
+            psql_cmds, 
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        p.stdin.write(conn_str.password)
+        p.stdin.flush()
+        stdout, stderr = p.communicate()
+        rc = p.returncode
+        t1 = time.time() - t0
+        if '<table border=' not in stdout: # if tabular, psql will send back as a table because of the -H option
+            display(
+                Javascript(
+                    """
+                        $('#tableData%s').append(
+                            `%s`
+                            +"<p id='dbinfo%s'>To execute: %s sec | "
+                            +'DB: %s | Host: %s'
+                        )
+                    """  % (unique_id, str(stderr), unique_id, str(round(t1, 3)), engine.url.database, engine.url.host)
+                )
+            )
+            return None 
+        data = pd.read_html(stdout, header=0)[0]
+        columns = data.keys()
+        table_data = [i for i in data.values.tolist()]
+        df = data
     
     t1 = time.time() - t0
     t2 = time.time()
@@ -896,7 +1009,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
             )
         except KeyError as e:
             print "No visual available for this query"
-        __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+        finally:
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
         return None
 
     if __SQLCell_GLOBAL_VARS__.EDIT:
