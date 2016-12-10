@@ -723,6 +723,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
             return None
         except Exception as e:
+            print e
             __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
         finally:
             __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
@@ -758,7 +759,17 @@ def _SQL(path, cell, __KERNEL_VARS__):
         rc = p.returncode
         t1 = time.time() - t0
         if '<table border=' not in stdout: # if tabular, psql will send back as a table because of the -H option
-            print stdout
+            display(
+                Javascript(
+                    """
+                        $('#tableData%s').append(
+                            `%s`
+                            +"<p id='dbinfo%s'>To execute: %s sec | "
+                            +'DB: %s | Host: %s'
+                        )
+                    """  % (unique_id, str(stderr), unique_id, str(round(t1, 3)), engine.url.database, engine.url.host)
+                )
+            )
             return None 
         data = pd.read_html(stdout, header=0)[0]
         columns = data.keys()
