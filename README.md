@@ -12,7 +12,7 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 <br/>&emsp;ii. [Flags](#flags)
 <br/>&emsp;iii. [Pass python variables to SQL](#pass-python-variables-to-sql)
 <br/>&emsp;iv. [`psql` metacommands](#psql-metacommands)
-<br/>&emsp;v. [Multi-threading](#multi-threading)
+<br/>&emsp;v. [Multi-threading](#multi-threading) 
 <br/>&emsp;vi. [Buttons](#buttons)
 <br/>&emsp;vii. [Inline editing](#inline-editing)
 <br/>&emsp;viii. [Easy-to-read Query Plan Table](#easy-to-read-query-plan-table)
