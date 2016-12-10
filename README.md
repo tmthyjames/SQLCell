@@ -3,7 +3,7 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 
 ![SQLCell preview](images/initial_query_lg.png)
 
-	    
+
 ## Contents
 &emsp;<br/>• [Most recent feature](#most-recent-feature)
 &emsp;<br/>• [Installation and Configuration](#installation-and-configuration)
