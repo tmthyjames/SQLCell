@@ -65,7 +65,7 @@ class __SQLCell_GLOBAL_VARS__(object):
 
     @staticmethod
     def update_table(sql):
-        return engine.execute(sql)
+        return __SQLCell_GLOBAL_VARS__.engine.execute(sql)
 
 
 def threaded(fn):
@@ -90,7 +90,7 @@ class HTMLTable(list):
 
     empty = []
 
-    def _repr_html_(self, n_rows=100, length=100):
+    def _repr_html_(self, n_rows=100, length=100, edit=False):
         table = '<table id="table'+self.id_+'" width=100%>'
         thead = '<thead><tr>'
         tbody = '<tbody>'
@@ -112,7 +112,7 @@ class HTMLTable(list):
                     if n > 50 and length > 100:
                         n = length - j
                         j -= 1
-                    tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td>' + str(r) + '</td>') for r in row]) + '</tr>'
+                    tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td data-column="'+str(r)+'">' + str(r) + '</td>') for r in row]) + '</tr>'
                 else:
                     section_time = re.search('actual time=([0-9]{,}\.[0-9]{,})\.\.([0-9]{,}\.[0-9]{,})', str(row[0]))
                     background_color = ""
@@ -747,7 +747,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 return None
         df = to_table(table_data)
     else:
-        conn_str = engine.url
+        __SQLCell_GLOBAL_VARS__.engine = engine
+        conn_str = engine.url 
         psql_cmds = ['psql', '-h', conn_str.host, '-U', conn_str.username, '-W', db_name, '-c', cell.strip(), '-H']
         p = subprocess.Popen(
             psql_cmds, 
@@ -1098,6 +1099,59 @@ def _SQL(path, cell, __KERNEL_VARS__):
             else:
                 HTMLTable(table_data, unique_id).display(columns, msg=" | CAN\\'T EDIT MULTIPLE TABLES")
                 return None
+
+        elif psql_command:
+            table_match = re.search('\\\d +([a-zA-Z_][a-zA-Z0-9_]{,})', cell)
+            table_name = table_match if not table_match else table_match.group(1)
+            if table_match:
+                HTMLTable(table_data, unique_id).display(columns, msg=' | ALTER TABLE')
+                display(
+                    Javascript(
+                        """
+                        $('#table%s').editableTableWidget({preventColumns:[1]});
+                        $('#table%s').on('change', function(evt, newValue){
+                            var tableName = '%s';
+                            var oldValue = evt.target.attributes[0].value;
+                            var th = $('#table%s th').eq(evt.target.cellIndex);
+                            var columnName = th.text();
+                            var SQLText;
+                            if (columnName == 'Column'){
+                                SQLText = "ALTER TABLE " + tableName + " RENAME COLUMN " + oldValue + " TO " + newValue;
+                            } else if (columnName == 'Type') {
+                                var columnName = evt.target.previousSibling.innerHTML;
+                                SQLText = "ALTER TABLE " + tableName + " ALTER COLUMN " + columnName + " TYPE " + newValue;
+                            }
+
+                            IPython.notebook.kernel.execute('__SQLCell_GLOBAL_VARS__.update_table("'+SQLText+'")',
+                                {
+                                    iopub: {
+                                        output: function(response) {
+                                            var $table = $('#table%s').parent();
+                                            if (response.content.evalue){
+                                                var error = response.content.evalue.replace(/\\n/g, "</br>");
+                                                $table.append('<h5 id="error" style="color:#d9534f;">'+error+'</h5>');
+                                                evt.target.innerHTML = oldValue;
+                                            } else {
+                                                $table.append('<h5 id="error" style="color:#5cb85c;">Update successful</h5>');
+                                                evt.target.attributes[0].value = newValue;
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    silent: false, 
+                                    store_history: false, 
+                                    stop_on_error: true
+                                }
+                            );
+                        });
+                        """ % (unique_id, unique_id, table_name, unique_id, unique_id)
+                    )
+                )
+            else:
+                HTMLTable(table_data, unique_id).display(columns, msg=' | <code>\\\d</code> ONLY')
+            return None
+
         else:
             HTMLTable(table_data, unique_id).display(columns, msg=' | TABLE HAS NO PK')
             return None
