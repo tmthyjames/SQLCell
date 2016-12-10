@@ -65,7 +65,7 @@ class __SQLCell_GLOBAL_VARS__(object):
 
     @staticmethod
     def update_table(sql):
-        return engine.execute(sql)
+        return __SQLCell_GLOBAL_VARS__.engine.execute(sql)
 
 
 def threaded(fn):
@@ -747,7 +747,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 return None
         df = to_table(table_data)
     else:
-        conn_str = engine.url
+        __SQLCell_GLOBAL_VARS__.engine = engine
+        conn_str = engine.url 
         psql_cmds = ['psql', '-h', conn_str.host, '-U', conn_str.username, '-W', db_name, '-c', cell.strip(), '-H']
         p = subprocess.Popen(
             psql_cmds, 
