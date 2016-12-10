@@ -90,7 +90,7 @@ class HTMLTable(list):
 
     empty = []
 
-    def _repr_html_(self, n_rows=100, length=100):
+    def _repr_html_(self, n_rows=100, length=100, edit=False):
         table = '<table id="table'+self.id_+'" width=100%>'
         thead = '<thead><tr>'
         tbody = '<tbody>'
@@ -112,7 +112,7 @@ class HTMLTable(list):
                     if n > 50 and length > 100:
                         n = length - j
                         j -= 1
-                    tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td>' + str(r) + '</td>') for r in row]) + '</tr>'
+                    tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td data-column="'+str(r)+'">' + str(r) + '</td>') for r in row]) + '</tr>'
                 else:
                     section_time = re.search('actual time=([0-9]{,}\.[0-9]{,})\.\.([0-9]{,}\.[0-9]{,})', str(row[0]))
                     background_color = ""
@@ -1107,21 +1107,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 display(
                     Javascript(
                         """
-                        var oldValue;
-                        function getval(cel) {
-                            oldValue = cel.innerHTML;
-                        }
-                        var tbl = $('#table%s').children('table')[0];
-                        if (tbl != null) {
-                            for (var i = 0; i < tbl.rows.length; i++) {
-                                for (var j = 0; j < tbl.rows[i].cells.length; j++)
-                                    tbl.rows[i].cells[j].onclick = function () { getval(this); };
-                            }
-                        }
-
                         $('#table%s').editableTableWidget({preventColumns:[1]});
                         $('#table%s').on('change', function(evt, newValue){
                             var tableName = '%s';
+                            var oldValue = evt.target.attributes[0].value;
                             var th = $('#table%s th').eq(evt.target.cellIndex);
                             var columnName = th.text();
                             var SQLText;
@@ -1131,6 +1120,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                                 var columnName = evt.target.previousSibling.innerHTML;
                                 SQLText = "ALTER TABLE " + tableName + " ALTER COLUMN " + columnName + " TYPE " + newValue;
                             }
+
                             IPython.notebook.kernel.execute('__SQLCell_GLOBAL_VARS__.update_table("'+SQLText+'")',
                                 {
                                     iopub: {
@@ -1139,8 +1129,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
                                             if (response.content.evalue){
                                                 var error = response.content.evalue.replace(/\\n/g, "</br>");
                                                 $table.append('<h5 id="error" style="color:#d9534f;">'+error+'</h5>');
+                                                evt.target.innerHTML = oldValue;
                                             } else {
                                                 $table.append('<h5 id="error" style="color:#5cb85c;">Update successful</h5>');
+                                                evt.target.attributes[0].value = newValue;
                                             }
                                         }
                                     }
@@ -1151,9 +1143,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
                                     stop_on_error: true
                                 }
                             );
-                            console.log(evt, newValue, oldValue);
                         });
-                        """ % (unique_id, unique_id, unique_id, table_name, unique_id, unique_id)
+                        """ % (unique_id, unique_id, table_name, unique_id, unique_id)
                     )
                 )
             return None
