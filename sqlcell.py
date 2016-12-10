@@ -1098,6 +1098,66 @@ def _SQL(path, cell, __KERNEL_VARS__):
             else:
                 HTMLTable(table_data, unique_id).display(columns, msg=" | CAN\\'T EDIT MULTIPLE TABLES")
                 return None
+
+        elif psql_command:
+            table_match = re.search('\\\d +([a-zA-Z_][a-zA-Z0-9_]{,})', cell)
+            table_name = table_match if not table_match else table_match.group(1)
+            if table_match:
+                HTMLTable(table_data, unique_id).display(columns, msg=' | ALTER TABLE')
+                display(
+                    Javascript(
+                        """
+                        var oldValue;
+                        function getval(cel) {
+                            oldValue = cel.innerHTML;
+                        }
+                        var tbl = $('#table%s').children('table')[0];
+                        if (tbl != null) {
+                            for (var i = 0; i < tbl.rows.length; i++) {
+                                for (var j = 0; j < tbl.rows[i].cells.length; j++)
+                                    tbl.rows[i].cells[j].onclick = function () { getval(this); };
+                            }
+                        }
+
+                        $('#table%s').editableTableWidget({preventColumns:[1]});
+                        $('#table%s').on('change', function(evt, newValue){
+                            var tableName = '%s';
+                            var th = $('#table%s th').eq(evt.target.cellIndex);
+                            var columnName = th.text();
+                            var SQLText;
+                            if (columnName == 'Column'){
+                                SQLText = "ALTER TABLE " + tableName + " RENAME COLUMN " + oldValue + " TO " + newValue;
+                            } else if (columnName == 'Type') {
+                                var columnName = evt.target.previousSibling.innerHTML;
+                                SQLText = "ALTER TABLE " + tableName + " ALTER COLUMN " + columnName + " TYPE " + newValue;
+                            }
+                            IPython.notebook.kernel.execute('__SQLCell_GLOBAL_VARS__.update_table("'+SQLText+'")',
+                                {
+                                    iopub: {
+                                        output: function(response) {
+                                            var $table = $('#table%s').parent();
+                                            if (response.content.evalue){
+                                                var error = response.content.evalue.replace(/\\n/g, "</br>");
+                                                $table.append('<h5 id="error" style="color:#d9534f;">'+error+'</h5>');
+                                            } else {
+                                                $table.append('<h5 id="error" style="color:#5cb85c;">Update successful</h5>');
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    silent: false, 
+                                    store_history: false, 
+                                    stop_on_error: true
+                                }
+                            );
+                            console.log(evt, newValue, oldValue);
+                        });
+                        """ % (unique_id, unique_id, unique_id, table_name, unique_id, unique_id)
+                    )
+                )
+            return None
+
         else:
             HTMLTable(table_data, unique_id).display(columns, msg=' | TABLE HAS NO PK')
             return None
