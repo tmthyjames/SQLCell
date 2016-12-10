@@ -1,7 +1,7 @@
 # __builtin__'s used with MAKE_GLOBAL param so data can 
 # be passed from this module to the notebook without referencing 
 # a class or any other object. We can just call the variable that's
-# passed to MAKE_GLOBAL
+# passed to MAKE_GLOBAL 
 import __builtin__
 import re
 import fileinput
