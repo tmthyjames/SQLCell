@@ -1148,6 +1148,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
                         """ % (unique_id, unique_id, table_name, unique_id, unique_id)
                     )
                 )
+            else:
+                HTMLTable(table_data, unique_id).display(columns, msg=' | <code>\\\d</code> ONLY')
             return None
 
         else:
