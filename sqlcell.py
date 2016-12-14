@@ -678,6 +678,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                         )
                     )
                 )
+                __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False if __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ else __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__
             except Exception as e:
                 print e
             # finally:
