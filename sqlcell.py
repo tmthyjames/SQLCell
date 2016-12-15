@@ -1042,6 +1042,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                         """
                         $('#table%s').editableTableWidget({preventColumns:[1,2]});
                         $('#table%s').on('change', function(evt, newValue){
+                            var oldValue = evt.target.attributes[0].value;
                             var th = $('#table%s th').eq(evt.target.cellIndex);
                             var columnName = th.text();
 
@@ -1063,11 +1064,14 @@ def _SQL(path, cell, __KERNEL_VARS__):
                                 }
                             });
 
+                            oldValue = oldValue.match(/^[0-9]/) ? oldValue : "'" + oldValue + "'";
+
+                            pkValue = columnName == primary_key ? oldValue : pkValue;
+
                             var SQLText = "UPDATE " + tableName + " SET " + columnName + " = '" + newValue + "' WHERE " + primary_key + " = " + pkValue;
-                            console.log(SQLText, 't' + pkValue + 't');
+                            console.log(SQLText);
 
                             if (pkValue === ''){
-                                console.log('testingietren');
                             } else {
                                 $('#error').remove();
                                 IPython.notebook.kernel.execute('__SQLCell_GLOBAL_VARS__.update_table("'+SQLText+'")',
@@ -1079,6 +1083,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                                                     var error = response.content.evalue.replace(/\\n/g, "</br>");
                                                     $table.append('<h5 id="error" style="color:#d9534f;">'+error+'</h5>');
                                                 } else {
+                                                    evt.target.attributes[0].value = newValue;
                                                     $table.append('<h5 id="error" style="color:#5cb85c;">Update successful</h5>');
                                                 }
                                             }
