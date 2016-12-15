@@ -849,27 +849,32 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 )
                 
                 if ($.notify){
-                    $.notify({
-                        title: 'Query Finished',
-                        message: `%s`
-                    },{
-                        type: 'info',
-                        delay: 5000,
-                        animate: {
-                            enter: 'animated fadeInRight',
-                            exit: 'animated fadeOutRight'
-                        },
-                        mouse_over: "pause",
-                        template: '<div data-notify=`container%s` onclick="document.getElementById(`table%s`).scrollIntoView();" class="col-xs-11 col-sm-3 alert alert-{0}" role="alert">' +
-                            '<img data-notify="icon" class="img-circle pull-left">' +
-                            '<span data-notify="title"><strong>{1}</strong></span>' +
-                            '</br><span data-notify="message">{2}</span>' +
-                        '</div>'
-                    });
+                    if (%d > 0.5){
+                        $.notify({
+                            title: 'Query Finished',
+                            message: `%s`
+                        },{
+                            type: 'info',
+                            delay: 5000,
+                            animate: {
+                                enter: 'animated fadeInRight',
+                                exit: 'animated fadeOutRight'
+                            },
+                            allow_dismiss: true,
+                            mouse_over: "pause",
+                            template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-{0}" role="alert">' +
+                                '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">x</button>' +
+                                '<div style="cursor:pointer;" data-notify="container" onclick="document.getElementById(`table%s`).scrollIntoView();">' +
+                                    '<span data-notify="title"><strong>{1}</strong></span>' +
+                                    '</br><span data-notify="message">{2}</span>' +
+                                '</div>' +
+                            '</div>'
+                        });
+                    }
                 } else {
                     console.log('$.notify is not a function. trouble loading bootstrap-notify.')
                 }
-            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, sql_sample, unique_id, unique_id)
+            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, t1, sql_sample, unique_id)
         )
     )
 
