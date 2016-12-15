@@ -297,6 +297,14 @@ def load_js_files():
     display(HTML(
         """
         <script>
+        $.getScript('//cdnjs.cloudflare.com/ajax/libs/bootstrap-notify/0.2.0/js/bootstrap-notify.min.js', function(resp, status){
+            console.log(resp, status, 'bootstrap-notify');
+            $('head').append(
+                '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
+            );
+            console.log('animate.css and minimalist-notify.css loaded');
+        });
+
         $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
             console.log(resp, status, 'd3');
             $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/sankey.js', function(i_resp, i_status){
@@ -820,6 +828,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
     str_data = df.to_csv(sep="\t") # for downloading
 
     t3 = time.time() - t2
+
+    sql_sample = cell[:] if len(cell) < 100 else cell[:100] + " ..."
     
     display(
         Javascript(
@@ -837,7 +847,29 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     +'Rows: %s | '
                     +'DB: %s | Host: %s'
                 )
-            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
+                
+                if ($.notify){
+                    $.notify({
+                        title: 'Query Finished',
+                        message: `%s`
+                    },{
+                        type: 'info',
+                        delay: 5000,
+                        animate: {
+                            enter: 'animated fadeInRight',
+                            exit: 'animated fadeOutRight'
+                        },
+                        mouse_over: "pause",
+                        template: '<div data-notify=`container%s` onclick="document.getElementById(`table%s`).scrollIntoView();" class="col-xs-11 col-sm-3 alert alert-{0}" role="alert">' +
+                            '<img data-notify="icon" class="img-circle pull-left">' +
+                            '<span data-notify="title"><strong>{1}</strong></span>' +
+                            '</br><span data-notify="message">{2}</span>' +
+                        '</div>'
+                    });
+                } else {
+                    console.log('$.notify is not a function. trouble loading bootstrap-notify.')
+                }
+            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, sql_sample, unique_id, unique_id)
         )
     )
 
@@ -1168,6 +1200,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
 def sql(path, cell):
     if __SQLCell_GLOBAL_VARS__.INITIAL_QUERY:
         load_js_files()
+        time.sleep(0.4) # to make sure all the JS files load
 
     t = threading.Thread(
         target=_SQL, 
