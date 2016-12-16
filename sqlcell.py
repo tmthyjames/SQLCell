@@ -296,6 +296,12 @@ def node_walk(obj, key, nodes={}, xPos=None):
 def load_js_files():
     display(Javascript(
         """
+            $.getScript('//cdnjs.cloudflare.com/ajax/libs/mouse0270-bootstrap-notify/3.1.7/bootstrap-notify.min.js', function(resp, status){
+                $('head').append(
+                    '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
+                );
+                console.log('animate.css loaded');
+            });
             $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
                 console.log(resp, status, 'd3');
                 $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/sankey.js', function(i_resp, i_status){
@@ -305,13 +311,6 @@ def load_js_files():
 
             $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
                 console.log(resp, status, 'editableTableWidget')
-            });
-
-            $.getScript('//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js', function(resp, status){
-                $('head').append(
-                    '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
-                );
-                console.log('animate.css and minimalist-notify.css loaded');
             });
         """
     ))
