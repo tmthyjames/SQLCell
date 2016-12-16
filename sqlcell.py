@@ -307,13 +307,12 @@ def load_js_files():
                 console.log(resp, status, 'editableTableWidget')
             });
 
-            //$.getScript('//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js', function(resp, status){
+            $.getScript('//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js', function(resp, status){
                 $('head').append(
                     '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
-                    //+'<script type="text/javascript" src="//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js"></script>'
                 );
                 console.log('animate.css and minimalist-notify.css loaded');
-            //});
+            });
         """
     ))
     return None
@@ -831,10 +830,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
     sql_sample = cell[:] if len(cell) < 100 else cell[:100] + " ..."
     
     display(
-        HTML(
+        Javascript(
             """
-            <script type="text/javascript" src="https://rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js"></script>
-            <script>
                 $('#saveData"""+unique_id+"""').removeClass('disabled');
                 $("#cancelQuery"""+unique_id+"""").addClass('disabled')
 
@@ -875,7 +872,6 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 } else {
                     console.log('$.notify is not a function. trouble loading bootstrap-notify.')
                 }
-                </script>
             """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, cell, str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, unique_id)
         )
     )
