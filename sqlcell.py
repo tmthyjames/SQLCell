@@ -294,27 +294,26 @@ def node_walk(obj, key, nodes={}, xPos=None):
     return nodes
 
 def load_js_files():
-    display(HTML(
+    display(Javascript(
         """
-        <script>
-        $.getScript('//cdnjs.cloudflare.com/ajax/libs/bootstrap-notify/0.2.0/js/bootstrap-notify.min.js', function(resp, status){
-            console.log(resp, status, 'bootstrap-notify');
-            $('head').append(
-                '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
-            );
-            console.log('animate.css and minimalist-notify.css loaded');
-        });
-
-        $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
-            console.log(resp, status, 'd3');
-            $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/sankey.js', function(i_resp, i_status){
-                console.log(i_resp, i_status, 'd3.sankey');
+            $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
+                console.log(resp, status, 'd3');
+                $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/sankey.js', function(i_resp, i_status){
+                    console.log(i_resp, i_status, 'd3.sankey');
+                });
             });
-        });
-        $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
-            console.log(resp, status, 'editableTableWidget')
-        });
-        </script>
+
+            $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
+                console.log(resp, status, 'editableTableWidget')
+            });
+
+            //$.getScript('//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js', function(resp, status){
+                $('head').append(
+                    '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
+                    //+'<script type="text/javascript" src="//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js"></script>'
+                );
+                console.log('animate.css and minimalist-notify.css loaded');
+            //});
         """
     ))
     return None
@@ -832,8 +831,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
     sql_sample = cell[:] if len(cell) < 100 else cell[:100] + " ..."
     
     display(
-        Javascript(
+        HTML(
             """
+            <script type="text/javascript" src="https://rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js"></script>
+            <script>
                 $('#saveData"""+unique_id+"""').removeClass('disabled');
                 $("#cancelQuery"""+unique_id+"""").addClass('disabled')
 
@@ -849,10 +850,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 )
                 
                 if ($.notify){
-                    if (%d > 0.5){
+                    if (true){
                         $.notify({
                             title: 'Query Finished',
-                            message: `%s`
+                            message: `<pre style="max-height:150px;overflow-y:scroll;">%s</pre>To Execute: %s | Rows: %s | DB: %s | Host: %s`
                         },{
                             type: 'info',
                             delay: 5000,
@@ -874,7 +875,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 } else {
                     console.log('$.notify is not a function. trouble loading bootstrap-notify.')
                 }
-            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, t1, sql_sample, unique_id)
+                </script>
+            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, cell, str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, unique_id)
         )
     )
 
