@@ -266,6 +266,7 @@ def build_node(id_, node, xPos):
         'rows': node.get('Plan', node).get('Plan Rows'),
         'xPos': xPos
     }
+    print _node['display']
     return _node
 
 def node_walk(obj, key, nodes={}, xPos=None):
@@ -294,19 +295,25 @@ def node_walk(obj, key, nodes={}, xPos=None):
     return nodes
 
 def load_js_files():
-    display(HTML(
+    display(Javascript(
         """
-        <script>
-        $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
-            console.log(resp, status, 'd3');
-            $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/sankey.js', function(i_resp, i_status){
-                console.log(i_resp, i_status, 'd3.sankey');
+            $.getScript('//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js', function(resp, status){
+                $('head').append(
+                    '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
+                );
+                console.log('animate.css loaded');
+
             });
-        });
-        $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
-            console.log(resp, status, 'editableTableWidget')
-        });
-        </script>
+            $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
+                console.log(resp, status, 'd3');
+                $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/sankey.js', function(i_resp, i_status){
+                    console.log(i_resp, i_status, 'd3.sankey');
+                });
+            });
+
+            $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
+                console.log(resp, status, 'editableTableWidget')
+            });
         """
     ))
     return None
@@ -714,9 +721,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 Javascript(
                     """
                         $('#tableData"""+unique_id+"""').append(
-                            'Query finished...'
-                            +'<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
-                            +'DB: %s | Host: %s'
+                            '<p id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
+                            +'DB: %s | Host: %s</p>'
                         )
                     """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
                 )
@@ -733,20 +739,35 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
         t1 = time.time() - t0
         columns = data.keys()
-        table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
-        if 'DISPLAY' in locals():
-            if not DISPLAY:
-                if 'MAKE_GLOBAL' in locals():
-                    exec('__builtin__.' + glovar[1] + '=table_data')
-                else:
-                    exec('__builtin__.DATA=table_data')
-                    glovar = ['', 'DATA']
-                print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
-                print 'Rows:', len(table_data), '|',
-                print 'DB:', engine.url.database, '| Host:', engine.url.host
-                print 'data not displayed but captured in variable: ' + glovar[1]
-                return None
-        df = to_table(table_data)
+        if data.returns_rows:
+            table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
+            if 'DISPLAY' in locals():
+                if not DISPLAY:
+                    if 'MAKE_GLOBAL' in locals():
+                        exec('__builtin__.' + glovar[1] + '=table_data')
+                    else:
+                        exec('__builtin__.DATA=table_data')
+                        glovar = ['', 'DATA']
+                    print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
+                    print 'Rows:', len(table_data), '|',
+                    print 'DB:', engine.url.database, '| Host:', engine.url.host
+                    print 'data not displayed but captured in variable: ' + glovar[1]
+                    return None
+            df = to_table(table_data)
+        else:
+            display(
+                Javascript(
+                    """
+                        $('#tableData"""+unique_id+"""').append(
+                            '<p id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
+                            +'DB: %s | Host: %s</p>'
+                        )
+                    """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
+                )
+            )
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+            return None
+
     else:
         __SQLCell_GLOBAL_VARS__.engine = engine
         conn_str = engine.url 
@@ -821,6 +842,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
     str_data = df.to_csv(sep="\t") # for downloading
 
     t3 = time.time() - t2
+
+    sql_sample = cell[:] if len(cell) < 100 else cell[:100] + " ..."
     
     display(
         Javascript(
@@ -838,7 +861,28 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     +'Rows: %s | '
                     +'DB: %s | Host: %s'
                 )
-            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
+                
+                if ($.notify){
+                    $.notify({},{
+                        delay: 5000,
+                        animate: {
+                            enter: 'animated fadeInRight',
+                            exit: 'animated fadeOutRight'
+                        },
+                        allow_dismiss: true,
+                        mouse_over: "pause",
+                        template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-info" role="alert">' +
+                            '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">x</button>' +
+                            '<div style="cursor:pointer;" data-notify="container" onclick="document.getElementById(`table%s`).scrollIntoView();">' +
+                                '<span data-notify="title"><strong>Query Finished</strong></span>' +
+                                `</br><span data-notify="message"><pre style=\"max-height:150px;overflow-y:scroll;\">%s</pre>To Execute: %s | Rows: %s | DB: %s | Host: %s</span>` +
+                            '</div>' +
+                        '</div>'
+                    });
+                } else {
+                    console.log('$.notify is not a function. trouble loading bootstrap-notify.')
+                }
+            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, unique_id, cell, str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
         )
     )
 
@@ -1043,6 +1087,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                         """
                         $('#table%s').editableTableWidget({preventColumns:[1,2]});
                         $('#table%s').on('change', function(evt, newValue){
+                            var oldValue = evt.target.attributes[0].value;
                             var th = $('#table%s th').eq(evt.target.cellIndex);
                             var columnName = th.text();
 
@@ -1064,11 +1109,14 @@ def _SQL(path, cell, __KERNEL_VARS__):
                                 }
                             });
 
+                            oldValue = oldValue.match(/^[0-9]/) ? oldValue : "'" + oldValue + "'";
+
+                            pkValue = columnName == primary_key ? oldValue : pkValue;
+
                             var SQLText = "UPDATE " + tableName + " SET " + columnName + " = '" + newValue + "' WHERE " + primary_key + " = " + pkValue;
-                            console.log(SQLText, 't' + pkValue + 't');
+                            console.log(SQLText);
 
                             if (pkValue === ''){
-                                console.log('testingietren');
                             } else {
                                 $('#error').remove();
                                 IPython.notebook.kernel.execute('__SQLCell_GLOBAL_VARS__.update_table("'+SQLText+'")',
@@ -1080,6 +1128,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                                                     var error = response.content.evalue.replace(/\\n/g, "</br>");
                                                     $table.append('<h5 id="error" style="color:#d9534f;">'+error+'</h5>');
                                                 } else {
+                                                    evt.target.attributes[0].value = newValue;
                                                     $table.append('<h5 id="error" style="color:#5cb85c;">Update successful</h5>');
                                                 }
                                             }
@@ -1164,6 +1213,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
 def sql(path, cell):
     if __SQLCell_GLOBAL_VARS__.INITIAL_QUERY:
         load_js_files()
+        time.sleep(0.4) # to make sure all the JS files load
 
     t = threading.Thread(
         target=_SQL, 
