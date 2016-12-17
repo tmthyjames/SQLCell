@@ -17,11 +17,11 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 <br/>&emsp;vii. [Inline editing](#inline-editing)
 <br/>&emsp;viii. [Easy-to-read Query Plan Table](#easy-to-read-query-plan-table)
 <br/>&emsp;ix. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph)
-<br/>&emsp;x. [Switch Engines](#switch-engines) (To be documented...)
+<br/>&emsp;x. [Alter column name and type via the UI](#alter-column-name-and-type-inline)
+<br/>&emsp;xi. [Notifications](#notifications)
+<br/>&emsp;xii. [`pg_dump` support](#pg_dump-support)
+<br/>&emsp;xiii. [Switch Engines](#switch-engines) (To be documented...)
 &emsp;<br/>• [Pipeline](#pipeline)
-<br/>&emsp;i. [Easy-to-read Query Plan Graph](#easy-to-read-query-plan-graph) (Added)
-<br/>&emsp;ii. [`pg_dump` support](#pg_dump-support)
-<br/>&emsp;iii. [Alter column name and type via the UI](#alter-table-via-ui)
 &emsp;<br/>• To dos
 <br/>&emsp;i. Add UI elements to perform basic, common database tasks, such as adding columns, creating tables, etc.
 <br/>&emsp;ii. Need to confirm install process is smooth on non-Mac computers.
@@ -270,12 +270,28 @@ This includes a heatmap-like color scale to indicate problem spots in your query
 
 ![query_plan_table](images/query_plan_table.png)
 
-##Pipeline (Added)
-
 ###Easy to read Query Plan graph
 Currently in dev, this is a sankey graph and also includes a heatmap-like color scale to indicate problem spots in your query, built with D3.js.
 
 ![query_plan_sankey](images/query_plan_graph_diverse.png)
+
+
+###Alter Column Name and Type Inline
+
+To edit the column info via the UI, use the `\d <table-name>` metacommand and the `EDIT` parameter.
+
+	In[15]: %%sql DB=sports EDIT=True
+	        \d nba
+		
+![alter_column](images/alter_column.png)
+
+
+###Notifications
+
+SQLCell now includes "Growl"-like, Bootstrap-styled notifications using [mouse0270](https://twitter.com/Mouse0270)'s awesome [bootstrap-notify](https://github.com/mouse0270/bootstrap-notify). The entire query is in the `pre` tag and scrollable, and clicking the notification will focus the window on the results of that query.
+
+![notifications](images/notifications.png)
+
 
 ###`pg_dump` support
 
