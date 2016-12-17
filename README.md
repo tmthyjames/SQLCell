@@ -77,6 +77,7 @@ Available parameters:
 <br/>• [`ENGINE`](#engine-parameter): Speicifies what host, database to connect to. Default is the connection that is specified in the engine_config.py file. If the engine_config.py file is not configured, then the `ENGINE` parameter is required.
 <br/>• [`TRANSACTION_BLOCK`](#transaction_block-parameter)': Determines whether the query will be executed inside a transaction block or not. This is useful when creating a database, dropping a database, `VACUUM ANALYZE`ing a database, or any other query statements that cannot be run inside a transaction block. Default: True
 <br/>• [`EDIT`](#edit-parameter): Enables inline editing. To use this, you must specify only one table in your query, and that table must have a primary key. Default: False.
+<br/>• [`NOTIFY`](#notify-parameter): Disables notifications for finished queries. Default: True.
 
 
 
@@ -177,6 +178,13 @@ Enables inline editing.
 	         LIMIT 3
 
 Will display a table where the cells can be clicked on and edited.
+
+####`NOTIFY` Parameter
+
+	In [11]: %%sql NOTIFY=False
+	         SELECT * FROM la_unemployment LIMIT 1
+		 
+Will disable notifications for the remainder of your Jupyter session. To re-enable notifications, just set `NOTIFY=True`.
 
 ###Flags
 <br/>• [`declare_engines`](#declare-engines): Makes adding engines to the engines.py file easy.
