@@ -261,6 +261,7 @@ To pass python variables to your queries, just do the following.
 	In[7]: # define your parameters in a python cell
 	        name = '1976'
 	        period = 'M01'
+		series_id = ('LASST470000000000005', 'LASST470000000000004', 'LASST470000000000003')
 	
 Now in a `%%sql` cell:
 
@@ -268,7 +269,7 @@ Now in a `%%sql` cell:
 	        SELECT * 
 	        FROM la_unemployment
 	        WHERE year = %(year)s
-	            AND period = %(period)s
+	            AND period = %(period)s AND series_id IN %(series_id)s
 	        LIMIT 3
 
 You can also use a colon to indicate your variables:
@@ -277,7 +278,7 @@ You can also use a colon to indicate your variables:
 	        SELECT * 
 	        FROM la_unemployment
 	        WHERE year = :year
-	            AND period = :period
+	            AND period = :period AND series_id IN :series_id
 	        LIMIT 3
 		
 Both output the following table:
