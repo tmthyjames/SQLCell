@@ -52,6 +52,7 @@ class __SQLCell_GLOBAL_VARS__(object):
     INITIAL_QUERY = True
     PATH = False
     RAW = False
+    NOTIFY = True
 
     logger = logging.getLogger()
     handler = logging.StreamHandler()
@@ -860,30 +861,37 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     +'Rows: %s | '
                     +'DB: %s | Host: %s'
                 )
-                
-                if ($.notify){
-                    $.notify({},{
-                        delay: 5000,
-                        animate: {
-                            enter: 'animated fadeInRight',
-                            exit: 'animated fadeOutRight'
-                        },
-                        allow_dismiss: true,
-                        mouse_over: "pause",
-                        template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-info" role="alert">' +
-                            '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">x</button>' +
-                            '<div style="cursor:pointer;" data-notify="container" onclick="document.getElementById(`table%s`).scrollIntoView();">' +
-                                '<span data-notify="title"><strong>Query Finished</strong></span>' +
-                                `</br><span data-notify="message"><pre style=\"max-height:150px;overflow-y:scroll;\">%s</pre>To Execute: %s | Rows: %s | DB: %s | Host: %s</span>` +
-                            '</div>' +
-                        '</div>'
-                    });
-                } else {
-                    console.log('$.notify is not a function. trouble loading bootstrap-notify.')
-                }
-            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, unique_id, cell, str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
+            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
         )
     )
+    
+    if __SQLCell_GLOBAL_VARS__.NOTIFY:           
+        display(
+            Javascript(
+                """
+                    if ($.notify){
+                        $.notify({},{
+                            delay: 5000,
+                            animate: {
+                                enter: 'animated fadeInRight',
+                                exit: 'animated fadeOutRight'
+                            },
+                            allow_dismiss: true,
+                            mouse_over: "pause",
+                            template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-info" role="alert">' +
+                                '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">x</button>' +
+                                '<div style="cursor:pointer;" data-notify="container" onclick="document.getElementById(`table%s`).scrollIntoView();">' +
+                                    '<span data-notify="title"><strong>Query Finished</strong></span>' +
+                                    `</br><span data-notify="message"><pre style=\"max-height:150px;overflow-y:scroll;\">%s</pre>To Execute: %s | Rows: %s | DB: %s | Host: %s</span>` +
+                                '</div>' +
+                            '</div>'
+                        });
+                    } else {
+                        console.log('$.notify is not a function. trouble loading bootstrap-notify.')
+                    }
+                """ % (unique_id, cell, str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
+            )
+        )
 
     table_name = re.search('from\s*([a-z_][a-z\-_0-9]{,})', cell, re.IGNORECASE)
     table_name = None if not table_name else table_name.group(1).strip()
