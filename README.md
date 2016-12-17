@@ -261,7 +261,7 @@ To pass python variables to your queries, just do the following.
 	In[7]: # define your parameters in a python cell
 	        name = '1976'
 	        period = 'M01'
-		series_id = ('LASST470000000000005', 'LASST470000000000004', 'LASST470000000000003')
+	        series_id = ('LASST470000000000005', 'LASST470000000000004', 'LASST470000000000003')
 	
 Now in a `%%sql` cell:
 
