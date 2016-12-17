@@ -5,9 +5,8 @@
 * License: MIT License
 * Website: https://github.com/mouse0270/bootstrap-growl
 */
-jQuery.noConflict();
 (function (factory) {
-	if (typeof define === 'function' && define.amd) {
+	if (false) {
 		// AMD. Register as an anonymous module.
 		define(['jquery'], factory);
 	} else if (typeof exports === 'object') {

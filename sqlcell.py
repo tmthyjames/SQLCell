@@ -266,6 +266,7 @@ def build_node(id_, node, xPos):
         'rows': node.get('Plan', node).get('Plan Rows'),
         'xPos': xPos
     }
+    print _node['display']
     return _node
 
 def node_walk(obj, key, nodes={}, xPos=None):
@@ -301,6 +302,7 @@ def load_js_files():
                     '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
                 );
                 console.log('animate.css loaded');
+
             });
             $.getScript('//d3js.org/d3.v3.min.js', function(resp, status){
                 console.log(resp, status, 'd3');
@@ -718,9 +720,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 Javascript(
                     """
                         $('#tableData"""+unique_id+"""').append(
-                            'Query finished...'
-                            +'<p id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
-                            +'DB: %s | Host: %s'
+                            '<p id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
+                            +'DB: %s | Host: %s</p>'
                         )
                     """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
                 )
@@ -737,20 +738,35 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
         t1 = time.time() - t0
         columns = data.keys()
-        table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
-        if 'DISPLAY' in locals():
-            if not DISPLAY:
-                if 'MAKE_GLOBAL' in locals():
-                    exec('__builtin__.' + glovar[1] + '=table_data')
-                else:
-                    exec('__builtin__.DATA=table_data')
-                    glovar = ['', 'DATA']
-                print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
-                print 'Rows:', len(table_data), '|',
-                print 'DB:', engine.url.database, '| Host:', engine.url.host
-                print 'data not displayed but captured in variable: ' + glovar[1]
-                return None
-        df = to_table(table_data)
+        if data.returns_rows:
+            table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
+            if 'DISPLAY' in locals():
+                if not DISPLAY:
+                    if 'MAKE_GLOBAL' in locals():
+                        exec('__builtin__.' + glovar[1] + '=table_data')
+                    else:
+                        exec('__builtin__.DATA=table_data')
+                        glovar = ['', 'DATA']
+                    print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
+                    print 'Rows:', len(table_data), '|',
+                    print 'DB:', engine.url.database, '| Host:', engine.url.host
+                    print 'data not displayed but captured in variable: ' + glovar[1]
+                    return None
+            df = to_table(table_data)
+        else:
+            display(
+                Javascript(
+                    """
+                        $('#tableData"""+unique_id+"""').append(
+                            '<p id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
+                            +'DB: %s | Host: %s</p>'
+                        )
+                    """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
+                )
+            )
+            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+            return None
+
     else:
         __SQLCell_GLOBAL_VARS__.engine = engine
         conn_str = engine.url 
@@ -847,10 +863,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 
                 if ($.notify){
                     if (true){
-                        $.notify({
-                            title: 'Query Finished',
-                            message: `<pre style="max-height:150px;overflow-y:scroll;">%s</pre>To Execute: %s | Rows: %s | DB: %s | Host: %s`
-                        },{
+                        $.notify({},{
                             type: 'info',
                             delay: 5000,
                             animate: {
@@ -862,8 +875,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
                             template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-{0}" role="alert">' +
                                 '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">x</button>' +
                                 '<div style="cursor:pointer;" data-notify="container" onclick="document.getElementById(`table%s`).scrollIntoView();">' +
-                                    '<span data-notify="title"><strong>{1}</strong></span>' +
-                                    '</br><span data-notify="message">{2}</span>' +
+                                    '<span data-notify="title"><strong>Query Finished</strong></span>' +
+                                    `</br><span data-notify="message"><pre style=\"max-height:150px;overflow-y:scroll;\">%s</pre>To Execute: %s | Rows: %s | DB: %s | Host: %s</span>` +
                                 '</div>' +
                             '</div>'
                         });
@@ -871,7 +884,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 } else {
                     console.log('$.notify is not a function. trouble loading bootstrap-notify.')
                 }
-            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, cell, str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, unique_id)
+            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host, unique_id, cell, str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
         )
     )
 
