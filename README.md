@@ -180,6 +180,7 @@ Will display a table where the cells can be clicked on and edited.
 
 ###Flags
 <br/>• [`declare_engines`](#declare-engines): Makes adding engines to the engines.py file easy.
+<br/>• [`pg_dump`](#pg_dump-support): Run `--pg_dump` commands from your Jupyter Notebook.
 
 ####Declare Engines
 All engines should be in this format: `name=connection_string`. For example:
@@ -201,6 +202,48 @@ To append new engines to an existing ENGINES object:
 ![declare_engines_append](images/declare_engines_append.png)
 
 Where I had the engines LOCAL, DEV, and PROD I now have LOCAL_test and DEV_test also.
+
+
+###`pg_dump` support
+
+	In[17]: %%sql --pg_dump
+	        -t nba sports --schema-only
+
+Will output the following:
+
+	SET statement_timeout = 0;
+	SET lock_timeout = 0;
+	SET client_encoding = 'UTF8';
+	SET standard_conforming_strings = on;
+	SET check_function_bodies = false;
+	SET client_min_messages = warning;
+	SET row_security = off;
+	SET search_path = public, pg_catalog;
+	SET default_tablespace = '';
+	SET default_with_oids = false;
+	--
+	-- Name: nba; Type: TABLE; Schema: public; Owner: postgres
+	--
+	CREATE TABLE nba (
+	    dateof date,
+	    team character varying(5),
+	    opp character varying(5),
+	    pts bigint,
+	    fg integer,
+	    fg_att integer,
+	    ft integer,
+	    ft_att integer,
+	    fg3 integer,
+	    fg3_att integer,
+	    off_rebounds integer,
+	    def_rebounds integer,
+	    asst integer,
+	    blks integer,
+	    fouls integer,
+	    stls integer,
+	    turnovers integer
+	);
+	ALTER TABLE nba OWNER TO postgres;
 
 
 ###Pass Python variables to SQL
@@ -290,48 +333,6 @@ To edit the column info via the UI, use the `\d <table-name>` metacommand and th
 SQLCell now includes "Growl"-like, Bootstrap-styled notifications using [mouse0270](https://twitter.com/Mouse0270)'s awesome [bootstrap-notify](https://github.com/mouse0270/bootstrap-notify). The entire query is in the `pre` tag and scrollable, and clicking the notification will focus the window on the results of that query.
 
 ![notifications](images/notifications.png)
-
-
-###`pg_dump` support
-
-	In[17]: %%sql --pg_dump
-	        -t nba sports --schema-only
-
-Will output the following:
-
-	SET statement_timeout = 0;
-	SET lock_timeout = 0;
-	SET client_encoding = 'UTF8';
-	SET standard_conforming_strings = on;
-	SET check_function_bodies = false;
-	SET client_min_messages = warning;
-	SET row_security = off;
-	SET search_path = public, pg_catalog;
-	SET default_tablespace = '';
-	SET default_with_oids = false;
-	--
-	-- Name: nba; Type: TABLE; Schema: public; Owner: postgres
-	--
-	CREATE TABLE nba (
-	    dateof date,
-	    team character varying(5),
-	    opp character varying(5),
-	    pts bigint,
-	    fg integer,
-	    fg_att integer,
-	    ft integer,
-	    ft_att integer,
-	    fg3 integer,
-	    fg3_att integer,
-	    off_rebounds integer,
-	    def_rebounds integer,
-	    asst integer,
-	    blks integer,
-	    fouls integer,
-	    stls integer,
-	    turnovers integer
-	);
-	ALTER TABLE nba OWNER TO postgres;
 
 
 And that's it. 
