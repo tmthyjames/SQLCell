@@ -297,7 +297,7 @@ def node_walk(obj, key, nodes={}, xPos=None):
 def load_js_files():
     display(Javascript(
         """
-            $.getScript('//cdnjs.cloudflare.com/ajax/libs/mouse0270-bootstrap-notify/3.1.7/bootstrap-notify.min.js', function(resp, status){
+            $.getScript('//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js', function(resp, status){
                 $('head').append(
                     '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
                 );
@@ -862,25 +862,22 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 )
                 
                 if ($.notify){
-                    if (true){
-                        $.notify({},{
-                            type: 'info',
-                            delay: 5000,
-                            animate: {
-                                enter: 'animated fadeInRight',
-                                exit: 'animated fadeOutRight'
-                            },
-                            allow_dismiss: true,
-                            mouse_over: "pause",
-                            template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-{0}" role="alert">' +
-                                '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">x</button>' +
-                                '<div style="cursor:pointer;" data-notify="container" onclick="document.getElementById(`table%s`).scrollIntoView();">' +
-                                    '<span data-notify="title"><strong>Query Finished</strong></span>' +
-                                    `</br><span data-notify="message"><pre style=\"max-height:150px;overflow-y:scroll;\">%s</pre>To Execute: %s | Rows: %s | DB: %s | Host: %s</span>` +
-                                '</div>' +
-                            '</div>'
-                        });
-                    }
+                    $.notify({},{
+                        delay: 5000,
+                        animate: {
+                            enter: 'animated fadeInRight',
+                            exit: 'animated fadeOutRight'
+                        },
+                        allow_dismiss: true,
+                        mouse_over: "pause",
+                        template: '<div data-notify="container" class="col-xs-11 col-sm-3 alert alert-info" role="alert">' +
+                            '<button type="button" aria-hidden="true" class="close" data-notify="dismiss">x</button>' +
+                            '<div style="cursor:pointer;" data-notify="container" onclick="document.getElementById(`table%s`).scrollIntoView();">' +
+                                '<span data-notify="title"><strong>Query Finished</strong></span>' +
+                                `</br><span data-notify="message"><pre style=\"max-height:150px;overflow-y:scroll;\">%s</pre>To Execute: %s | Rows: %s | DB: %s | Host: %s</span>` +
+                            '</div>' +
+                        '</div>'
+                    });
                 } else {
                     console.log('$.notify is not a function. trouble loading bootstrap-notify.')
                 }
