@@ -267,7 +267,6 @@ def build_node(id_, node, xPos):
         'rows': node.get('Plan', node).get('Plan Rows'),
         'xPos': xPos
     }
-    print _node['display']
     return _node
 
 def node_walk(obj, key, nodes={}, xPos=None):
@@ -342,8 +341,10 @@ def declare_engines(cell, mode='new', **kwargs):
 def pg_dump(cell, **kwargs):
     conn_str = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE).url
     args = cell.strip().split(' ')
-    if not cell.startswith('-'):
+    if not cell.startswith('-') and ">" not in cell:
         pg_dump_cmds = ['pg_dump', '-t', args[0], args[1], '--schema-only', '-h', conn_str.host, '-U', conn_str.username]
+    elif ">" in cell:
+        pg_dump_cmds = ['pg_dump'] + map(lambda x: str.replace(str(x), ">", "-f"), args)
     else:
         pg_dump_cmds = ['pg_dump'] + args + ['-h', conn_str.host, '-U', conn_str.username, '-W']
     p = subprocess.Popen(
@@ -354,7 +355,9 @@ def pg_dump(cell, **kwargs):
     p.stdin.flush()
     stdout, stderr = p.communicate()
     rc = p.returncode
-    return stdout or stderr
+    if not stdout: 
+        raise Exception(stderr)
+    return stdout
 
 def eval_flag(flag):
     flags = {
@@ -889,7 +892,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     } else {
                         console.log('$.notify is not a function. trouble loading bootstrap-notify.')
                     }
-                """ % (unique_id, cell, str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
+                """ % (unique_id, cell.replace("\\", "\\\\"), str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
             )
         )
 
