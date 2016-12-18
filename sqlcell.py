@@ -22,7 +22,7 @@ from sqlalchemy import create_engine, exc
 
 from .engines.engine_config import driver, username, password, host, port, default_db
 from .engines.engines import __ENGINES_JSON_DUMPS__, __ENGINES_JSON__
-from .python_js.interface_js import buttons_js, notify_js, sankey_js, table_js, psql_table_js, load_js_scripts
+from .python_js.interface_js import buttons_js, notify_js, sankey_js, table_js, psql_table_js, load_js_scripts, info_bar_js, finished_query_js
 
 
 unique_db_id = str(uuid.uuid4())
@@ -454,24 +454,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 flag_output_html = flag_output.replace('\n', '<br/>').replace('    ', '&nbsp;&nbsp;&nbsp;&nbsp;')
                 display(
                     Javascript(
-                        """
-                            $('#table{id}').append('{msg}');
-                            $('#table{id}').append(`{flag_output_html}`);
-
-                            $('#saveData{id}').removeClass('disabled');
-                            $("#cancelQuery{id}").addClass('disabled')
-
-                            $('#saveData{id}').on('click', function(){{
-                                if (!$(this).hasClass('disabled')){{
-                                    saveData(`{flag_output}`, 'create.txt');
-                                }}
-                            }});
-                        """.format(
-                            id=unique_id, 
-                            flag_output_html=flag_output_html,
-                            flag_output=flag_output,
-                            msg=__SQLCell_GLOBAL_VARS__.ENGINE
-                        )
+                        info_bar_js(unique_id, flag_output_html, flag_output, __SQLCell_GLOBAL_VARS__.ENGINE)
                     )
                 )
             except Exception as e:
@@ -507,12 +490,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         except exc.ResourceClosedError as e:
             display(
                 Javascript(
-                    """
-                        $('#tableData"""+unique_id+"""').append(
-                            '<p id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
-                            +'DB: %s | Host: %s</p>'
-                        )
-                    """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
+                    finished_query_js(unique_id, t1, engine)
                 )
             )
             __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
@@ -545,12 +523,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         else:
             display(
                 Javascript(
-                    """
-                        $('#tableData"""+unique_id+"""').append(
-                            '<p id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
-                            +'DB: %s | Host: %s</p>'
-                        )
-                    """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
+                    finished_query_js(unique_id, t1, engine)
                 )
             )
             __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False

@@ -501,3 +501,35 @@ def load_js_scripts():
             });
         """
     return scripts
+
+def info_bar_js(unique_id, flag_output_html, flag_output, ENGINE):
+    info = """
+            $('#table{id}').append('{msg}');
+            $('#table{id}').append(`{flag_output_html}`);
+
+            $('#saveData{id}').removeClass('disabled');
+            $("#cancelQuery{id}").addClass('disabled')
+
+            $('#saveData{id}').on('click', function(){{
+                if (!$(this).hasClass('disabled')){{
+                    saveData(`{flag_output}`, 'create.txt');
+                }}
+            }});
+        """.format(
+            id=unique_id, 
+            flag_output_html=flag_output_html,
+            flag_output=flag_output,
+            msg=ENGINE
+        )
+    return info
+
+def finished_query_js(unique_id, t1, engine):
+    query_info = """
+        $('#tableData"""+unique_id+"""').append(
+            '<p id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
+            +'DB: %s | Host: %s</p>'
+        )
+    """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
+    return query_info
+
+
