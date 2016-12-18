@@ -346,4 +346,4 @@ SQLCell now includes "Growl"-like, Bootstrap-styled notifications using [mouse02
 
 And that's it. 
 
-[Enjoy](/tmthyjames/SQLCell/archive/master.zip) and [contribute](https://github.com/tmthyjames/SQLCell/issues).
+[Enjoy](https://github.com/tmthyjames/SQLCell/archive/master.zip) and [contribute](https://github.com/tmthyjames/SQLCell/issues).
