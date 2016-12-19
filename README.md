@@ -56,8 +56,8 @@ then you'll have to pass a connection string to the ENGINE parameter everytime y
 To save the engines:
 
 	%%sql --declare_engines new
-	LOCAL=postgresql://tdobbins:tdobbins@localhost:5432/
-	DEV=postgresql://phTeam:4zHam9MLDC@db.dev.phteam.perceptionhealth.com/
+	LOCAL=postgresql://username:password@localhost:5432/
+	DEV=postgresql://username:password@/
 	
 See more about this option in the [Declare Engines](#declare-engines) section
     
@@ -194,8 +194,8 @@ Will disable notifications for the remainder of your Jupyter session. To re-enab
 All engines should be in this format: `name=connection_string`. For example:
 
 	%%sql --declare_engines new
-	LOCAL=postgresql://tdobbins:tdobbins@localhost:5432/
-	DEV=postgresql://phTeam:4zHam9MLDC@db.dev.phteam.perceptionhealth.com/
+	LOCAL=postgresql://username:password@localhost:5432/
+	DEV=postgresql://username:password@random.domain.com/
 	
 Will create the ENGINES object with only LOCAL and DEV in it. "LOCAL" will be the text that goes on the button, like the following:
 
@@ -204,8 +204,8 @@ Will create the ENGINES object with only LOCAL and DEV in it. "LOCAL" will be th
 To append new engines to an existing ENGINES object:
 
 	%%sql --declare_engines append
-	LOCAL_test=postgresql://tdobbins:tdobbins@localhost:5432/
-	DEV_test=postgresql://phTeam:4zHam9MLDC@db.dev.phteam.perceptionhealth.com/
+	LOCAL_test=postgresql://username:password@localhost:5432/
+	DEV_test=postgresql://username:password@random.domain.com/
 	
 ![declare_engines_append](images/declare_engines_append.png)
 
