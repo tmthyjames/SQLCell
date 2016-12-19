@@ -57,7 +57,7 @@ To save the engines:
 
 	%%sql --declare_engines new
 	LOCAL=postgresql://username:password@localhost:5432/
-	DEV=postgresql://username:password@/
+	DEV=postgresql://username:password@random.domain.com/
 	
 See more about this option in the [Declare Engines](#declare-engines) section
     
