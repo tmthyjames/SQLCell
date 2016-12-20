@@ -7,4 +7,4 @@ password = os.getenv('DB_PASSWORD')
 host = 'localhost'
 port = '5432'
 # empty until set by user
-default_db = 'sports' 
+default_db = 'phUsers' 

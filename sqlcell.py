@@ -12,6 +12,7 @@ import sys
 import threading
 import logging
 import json
+import functools
 from os.path import expanduser
 
 import IPython
@@ -23,156 +24,18 @@ from sqlalchemy import create_engine, exc
 from .engines.engine_config import driver, username, password, host, port, default_db
 from .engines.engines import __ENGINES_JSON_DUMPS__, __ENGINES_JSON__
 from .python_js.interface_js import buttons_js, notify_js, sankey_js, table_js, psql_table_js, load_js_scripts, info_bar_js, finished_query_js
-
-
-unique_db_id = str(uuid.uuid4())
-jupyter_id = 'jupyter' + unique_db_id
-application_name = '?application_name='+jupyter_id
-
-
-engine = create_engine(driver+'://'+username+':'+password+'@'+host+':'+port+'/'+default_db+application_name)
-conn_string = engine.url
+from .tasks.params import __SQLCell_GLOBAL_VARS__, unique_db_id, engine, application_name
+from .tasks.utility_belt import threaded, HTMLTable, ParseNodes, build_dict, kill_last_pid, load_js_files
+from .tasks.flags import declare_engines, pg_dump, eval_flag
 
 
 class __KERNEL_VARS__(object):
     g = {}
 
 
-class __SQLCell_GLOBAL_VARS__(object):
-
-    jupyter_id = jupyter_id
-    ENGINE = str(engine.url)
-    engine = engine
-    EDIT = False
-    ENGINES = __ENGINES_JSON__
-    __EXPLAIN_GRAPH__ = False
-    __ENGINES_JSON_DUMPS__ = __ENGINES_JSON_DUMPS__
-    DB = default_db
-    ISOLATION_LEVEL = 1
-    TRANSACTION_BLOCK = True
-    INITIAL_QUERY = True
-    PATH = False
-    RAW = False
-    NOTIFY = True
-
-    logger = logging.getLogger()
-    handler = logging.StreamHandler()
-    logger.setLevel(logging.DEBUG)
-
-    def kill_last_pid_on_new_thread(self, app, db, unique_id):
-        t = threading.Thread(target=kill_last_pid, args=(app, db))
-        t.start()
-        HTMLTable([], unique_id).display(msg='<h5 id="error" style="color:#d9534f;">QUERY DEAD...</h5>')
-        return True
-
-    @staticmethod
-    def update_table(sql):
-        return __SQLCell_GLOBAL_VARS__.engine.execute(sql)
-
-
-def threaded(fn):
-    def wrapper(*args, **kwargs):
-        threading.Thread(target=fn, args=args, kwargs=kwargs).start()
-    return wrapper
-
 class QUERY(object):
     raw = ''
     history = []
-
-class HTMLTable(list):
-    """
-    Creates an HTML table if pandas isn't installed.
-    The .empty attribute takes the place of df.empty,
-    and to_csv takes the place of df.to_csv.
-    """
-
-    def __init__(self, data, id_):
-        self.id_ = id_
-        self.data = data
-
-    empty = []
-
-    def _repr_html_(self, n_rows=100, length=100, edit=False):
-        table = '<table id="table'+self.id_+'" width=100%>'
-        thead = '<thead><tr>'
-        tbody = '<tbody>'
-        j = 48
-        query_plan = False
-        for n,row in enumerate(self.data):
-            if n == 0:
-                if list(row):
-                    query_plan = True if row[0] == 'QUERY PLAN' else False
-                    if query_plan:
-                        execution_time = re.findall('[0-9]{,}\.[0-9]{,}', str(self.data[-1][0]))
-                        execution_time = execution_time if not execution_time else float(execution_time[0])
-                    thead += '<th>' + ' ' + '</th>' ''.join([('<th>' + str(r) + '</th>') for r in row])
-            elif n > n_rows:
-                if not query_plan:
-                    break
-            else:
-                if not query_plan:
-                    if n > 50 and length > 100:
-                        n = length - j
-                        j -= 1
-                    tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td data-column="'+str(r)+'">' + str(r) + '</td>') for r in row]) + '</tr>'
-                else:
-                    section_time = re.search('actual time=([0-9]{,}\.[0-9]{,})\.\.([0-9]{,}\.[0-9]{,})', str(row[0]))
-                    background_color = ""
-
-                    if section_time:
-                        start_time = float(section_time.group(1))
-                        stop_time = float(section_time.group(2))
-
-                        if (stop_time - start_time) > (execution_time * 0.9):
-                            background_color = "#800026"
-                        elif (stop_time - start_time) > (execution_time * 0.8):
-                            background_color = "#bd0026"
-                        elif (stop_time - start_time) > (execution_time * 0.7):
-                            background_color = "#e31a1c"
-                        elif (stop_time - start_time) > (execution_time * 0.6):
-                            background_color = "#fc4e2a"
-                        elif (stop_time - start_time) > (execution_time * 0.5):
-                            background_color = "#fd8d3c"
-                        elif (stop_time - start_time) > (execution_time * 0.4):
-                            background_color = "#feb24c"
-                        elif (stop_time - start_time) > (execution_time * 0.3):
-                            background_color = "#fed976"
-                        elif (stop_time - start_time) > (execution_time * 0.2):
-                            background_color = "#ffeda0"
-                        elif (stop_time - start_time) > (execution_time * 0.1):
-                            background_color = "#ffffcc"
-                        else:
-                            background_color = ""
-
-                    td_row = '<tr><td>' + str(n) + '</td>' + ''.join([('<td>' + str(r).replace('  ', '&nbsp;&nbsp;&nbsp;') + '</td>') for r in row]) + '</tr>'
-                    repl = '<b style="background-color:{color};">actual time</b>'.format(color=background_color)
-                    td_row = re.sub('actual time', repl, td_row)
-                    tbody += td_row
-        # tbody += '<tr style="height:40px;">' + ''.join([('<td></td>') for r in row]) + '</tr>' # for adding new row
-        thead += '</tr></thead>'
-        tbody += '</tbody>'
-        table += thead + tbody
-        return table
-
-    @threaded
-    def display(self, columns=[], msg=None):
-        data = self.data if len(self.data) <= 100 else self.data[:49] + [['...'] * (len(self.data[0]))] + self.data[-49:]
-        table_str = HTMLTable([columns] + data, self.id_)._repr_html_(n_rows=100, length=len(self.data))
-        table_str = table_str.replace('<table', '<table class="table-striped table-hover"').replace("'", "\\'").replace('\n','')
-        display(
-            Javascript(
-                """
-                $('#dbinfo{id}').append('{msg}');
-                $('#table{id}').append('{table}');
-                """.format(msg=str(msg), table=table_str, id=self.id_)
-            )
-        )
-
-    def to_csv(self, path):
-        import csv
-        with open(path, 'w') as fp:
-            a = csv.writer(fp, delimiter=',')
-            a.writerows(self.data)
 
 try:
     import pandas as pd
@@ -182,172 +45,6 @@ try:
 except ImportError as e:
     to_table = HTMLTable
 
-
-def build_dict(output, row):
-    output[row.replace('%(','').replace(')s','')] = eval("__KERNEL_VARS__.g.get('"+row.replace('%(','').replace(')s','')+"')")
-    return output
-
-
-def kill_last_pid(app=None, db=None):
-    from sqlalchemy import create_engine    
-
-    connection = create_engine("postgresql://tdobbins:tdobbins@localhost:5432/"+db+"?application_name=garbage_collection")
-    try:
-        pid_sql = """
-            SELECT pid 
-            FROM pg_stat_activity 
-            where application_name = %(app)s
-            """
-        pids = [i.pid for i in connection.execute(pid_sql, {
-                'app': app
-            }
-        )]
-        for pid in pids:
-            cancel_sql = "select pg_cancel_backend(%(pid)s);"
-            cancel_execute = [i for i in connection.execute(cancel_sql, {
-                    'pid': pid
-                }
-            )]
-            print 'cancelled postgres job:', pid, 'application: ', app
-
-        return True
-
-    except Exception as e:
-        print e
-        return False
-
-    finally:
-        print 'closing DB connection....'
-        connection.dispose()
-
-    return True
-
-def get_depth(obj, itr=0, depth=[]):
-    if isinstance(obj, dict):
-        for k, v2 in obj.items():
-            if 'Plan' in k:
-                if k == 'Plans':
-                    itr += 1
-                    depth.append(itr)
-                get_depth(v2, itr=itr, depth=depth)
-    elif isinstance(obj, list):
-        for i, v2 in enumerate(obj):
-            if 'Plans' in v2:
-                get_depth(v2, itr=itr, depth=depth)
-    else:
-        depth.append(itr)
-    return depth
-
-def build_node(id_, node, xPos):
-    _node = {
-        'name': id_,
-        'nodetype': node.get('Plan', node).get('Node Type'),
-        'starttime': node.get('Plan', node).get('Actual Startup Time'),
-        'endtime': node.get('Plan', node).get('Actual Total Time'),
-        'subplan': node.get('Plan', node).get('Subplan Name'),
-        'display': str(node.get('Plan', node).get('Join Filter', 
-                                              node.get('Filter', 
-                                                       node.get('Index Cond', 
-                                                                node.get('Hash Cond', 
-                                                                         node.get('One-Time Filter',
-                                                                                 node.get('Recheck Cond',
-                                                                                         node.get('Group Key')
-                                                                                         )
-                                                                                 )
-                                                                        )
-                                                               )
-                                                      )
-                                             ) or '') + (' using ' 
-                                        + str(node.get('Index Name', 
-                                                       node.get('Relation Name',
-                                                               node.get('Schema')))) + ' ' + str(node.get('Alias')or'')
-                                            if node.get('Index Name', 
-                                                        node.get('Relation Name',
-                                                                node.get('Schema'))) 
-                                            else ''),
-        'rows': node.get('Plan', node).get('Plan Rows'),
-        'xPos': xPos
-    }
-    return _node
-
-def node_walk(obj, key, nodes={}, xPos=None):
-    if not nodes.get('nodes'):
-        nodes['nodes'] = []
-        nodes['links'] = []
-        nodes['executionTime'] = obj.get('Execution Time')
-        nodes['depth'] = 0
-    target = id(obj)
-    source_node = build_node(target, obj, xPos)
-    xPos -= 1
-    if source_node not in nodes['nodes']:
-        nodes['nodes'].append(source_node)
-    for i in obj.get('Plan', obj)[key]:
-        source = id(i)
-        if isinstance(i, dict):
-            plans = i.get('Plans')
-            target_node = build_node(source, i, xPos)
-            if target_node not in nodes['nodes']:
-                nodes['nodes'].append(target_node)
-            nodes['links'].append({'source':source, 'target':target,'value':i.get('Total Cost')})
-            if plans:
-                nodes['depth'] += 1
-                
-                node_walk(i, 'Plans', nodes, xPos)
-    return nodes
-
-def load_js_files():
-    display(Javascript(
-        load_js_scripts()
-    ))
-    return None
-
-def declare_engines(cell, mode='new', **kwargs):
-    home = expanduser("~")
-    filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engines.py'
-    engines_json = {} if mode == 'new' else __ENGINES_JSON__
-    for n,i in enumerate(cell.split('\n')):
-        eng = i.split('=')
-        name, conn = str(eng[0]), str(eng[1])
-        engines_json[name] = {
-            'engine': conn,
-            'caution_level': 'warning',
-            'order': n
-        }
-    with open(filepath, 'w') as f:
-        f.write(
-            'import os\nimport json\n\n\n__ENGINES_JSON__ = {0}\n\n__ENGINES_JSON_DUMPS__ = json.dumps(__ENGINES_JSON__)'.format(engines_json)
-        )
-    __SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__ = json.dumps(engines_json)
-    print 'new engines created'
-    return None
-
-def pg_dump(cell, **kwargs):
-    conn_str = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE).url
-    args = cell.strip().split(' ')
-    if not cell.startswith('-') and ">" not in cell:
-        pg_dump_cmds = ['pg_dump', '-t', args[0], args[1], '--schema-only', '-h', conn_str.host, '-U', conn_str.username]
-    elif ">" in cell:
-        pg_dump_cmds = ['pg_dump'] + map(lambda x: str.replace(str(x), ">", "-f"), args)
-    else:
-        pg_dump_cmds = ['pg_dump'] + args + ['-h', conn_str.host, '-U', conn_str.username, '-W']
-    p = subprocess.Popen(
-        pg_dump_cmds, 
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    p.stdin.write(conn_str.password)
-    p.stdin.flush()
-    stdout, stderr = p.communicate()
-    rc = p.returncode
-    if not stdout: 
-        raise Exception(stderr)
-    return stdout
-
-def eval_flag(flag):
-    flags = {
-        'declare_engines': declare_engines,
-        'pg_dump': pg_dump
-    }
-    return flags[flag]
 
 def _SQL(path, cell, __KERNEL_VARS__):
     """
@@ -435,10 +132,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
             elif i.startswith('PATH'):
                 __SQLCell_GLOBAL_VARS__.PATH = glovar[1]
-            elif i.startswith('--'):
-                pass
             else:
-                exec('__SQLCell_GLOBAL_VARS__.'+i)
+                if not path.strip().startswith('--'):
+                    exec('__SQLCell_GLOBAL_VARS__.'+i)
 
     display(HTML(
         buttons_js(unique_id, __SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__, unique_db_id, db)
@@ -447,10 +143,10 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
     for i in args:
         if i.startswith('--'):
-            mode = 'new' if len(args) == 1 else args[n+1]
+            mode = 'new' if len(args) == 1 else args[1]
             flag = i.replace('--', '')
             try:
-                flag_output = eval_flag(flag)(cell, mode=mode)
+                flag_output = eval_flag(flag)(cell, mode=mode, __SQLCell_GLOBAL_VARS__=__SQLCell_GLOBAL_VARS__)
                 flag_output_html = flag_output.replace('\n', '<br/>').replace('    ', '&nbsp;&nbsp;&nbsp;&nbsp;')
                 display(
                     Javascript(
@@ -459,7 +155,6 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 )
             except Exception as e:
                 print e
-            # finally:
                 __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
             return None
 
@@ -478,7 +173,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
 
         try:
-            data = connection.execute(cell, reduce(build_dict, matches, {}))
+            data = connection.execute(cell, reduce(functools.partial(build_dict, __KERNEL_VARS__=__KERNEL_VARS__), matches, {}))
         except exc.OperationalError as e:
             print 'query cancelled...'
             __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
@@ -495,9 +190,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
             )
             __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
             return None
-        except Exception as e:
-            print e
-            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
+        # except Exception as e:
+        #     print e
+            # __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
         finally:
             __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
             __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
@@ -639,8 +334,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
     if __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__:
         query_plan_obj = table_data[0][0][0]
         try:
-            xPos = max(get_depth(query_plan_obj))
-            qp = node_walk(query_plan_obj, 'Plans', nodes={}, xPos=xPos)
+            xPos = max(ParseNodes(query_plan_obj).get_depth())
+            qp = ParseNodes(query_plan_obj).node_walk('Plans', nodes={}, xPos=xPos)
 
             nodes_enum = [{'name': i['name']} for i in qp['nodes']]
             for i in reversed(qp['links']):
