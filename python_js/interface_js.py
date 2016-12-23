@@ -378,8 +378,7 @@ def table_js(unique_id, table_name, primary_key):
     table = """
         $('#table%s').editableTableWidget({preventColumns:[1,2]});
         $('#table%s').on('change', function(evt, newValue){
-            var oldValue = evt.target.attributes[0].value, oldValueMatch;
-            console.log(oldValue);
+            var oldValue = evt.target.attributes[1].value, oldValueMatch;
             var th = $('#table%s th').eq(evt.target.cellIndex);
             var columnName = th.text();
 
@@ -410,7 +409,6 @@ def table_js(unique_id, table_name, primary_key):
             if (pkValue === ''){
             } else {
                 $('#error').remove();
-                console.log(newValue, oldValue)
                 IPython.notebook.kernel.execute('__SQLCell_GLOBAL_VARS__.update_table("'+SQLText+'")',
                     {
                         iopub: {
