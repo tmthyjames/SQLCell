@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 
 from ..engines.engine_config import driver, username, password, host, port, default_db
 from ..engines.engines import __ENGINES_JSON_DUMPS__, __ENGINES_JSON__
+from .utility_belt import kill_last_pid, HTMLTable
 
 unique_db_id = str(uuid.uuid4())
 jupyter_id = 'jupyter' + unique_db_id
