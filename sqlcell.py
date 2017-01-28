@@ -141,6 +141,12 @@ def _SQL(path, cell, __KERNEL_VARS__):
         )
     )
 
+    display(Javascript(
+        """
+        $('.kernel_indicator_name')[0].innerHTML = '{engine}'
+        """.format(engine=engine.url.host)
+    ))
+
     for i in args:
         if i.startswith('--'):
             mode = 'new' if len(args) == 1 else args[1]
@@ -290,12 +296,12 @@ def _SQL(path, cell, __KERNEL_VARS__):
         finally:
             __SQLCell_GLOBAL_VARS__.PATH = False
 
-    if 'MAKE_GLOBAL' in locals():
+    if 'MAKE_GLOBAL' in locals():   
         exec('__builtin__.' + make_global_param[1] + '=df if not __SQLCell_GLOBAL_VARS__.RAW else table_data')
         __SQLCell_GLOBAL_VARS__.RAW = False
         
 
-    str_data = df.to_csv(sep="\t") # for downloading
+    str_data = df.to_csv(sep="\t", encoding='utf-8') # for downloading
 
     t3 = time.time() - t2
 
@@ -309,7 +315,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
                 $('#saveData"""+unique_id+"""').on('click', function(){
                     if (!$(this).hasClass('disabled')){
-                        saveData(`"""+str_data+"""`, 'test.tsv');
+                        saveData(`"""+''+"""`, 'test.tsv');
                     }
                 });
                 $('#tableData"""+unique_id+"""').append(
@@ -324,7 +330,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
     if __SQLCell_GLOBAL_VARS__.NOTIFY:           
         display(
             Javascript(
-                notify_js(unique_id, cell, t1, df, engine)
+                notify_js(unique_id, cell, t1, df, engine, 0 if isinstance(__SQLCell_GLOBAL_VARS__.NOTIFY, bool) else __SQLCell_GLOBAL_VARS__.NOTIFY)
             )
         )
 

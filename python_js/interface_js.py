@@ -200,9 +200,9 @@ def buttons_js(unique_id, __ENGINES_JSON_DUMPS__, unique_db_id, db):
         '''
     return js
 
-def notify_js(unique_id, cell, t1, df, engine):
+def notify_js(unique_id, cell, t1, df, engine, timer):
     notification = """
-        if ($.notify){
+        if ($.notify && %s > %s){
             $.notify({},{
                 delay: 5000,
                 animate: {
@@ -222,7 +222,7 @@ def notify_js(unique_id, cell, t1, df, engine):
         } else {
             console.log('$.notify is not a function. trouble loading bootstrap-notify.')
         }
-    """ % (unique_id, cell.replace("\\", "\\\\"), str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
+    """ % (t1, timer, unique_id, cell.replace("\\", "\\\\"), str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
     return notification
 
 def sankey_js(unique_id, query_plan_depth, query_plan):
