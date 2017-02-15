@@ -46,7 +46,7 @@ class HTMLTable(list):
                     if n > 50 and length > 100:
                         n = length - j
                         j -= 1
-                    tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td tabindex="1" data-column="'+str(r)+'">' + str(r) + '</td>') for r in row]) + '</tr>'
+                    tbody += '<tr><td>' + str(n) + '</td>' + ''.join([('<td tabindex="1" data-column="'+str(r).replace('\\', '\\\\')+'">' + str(r).replace('\\', '\\\\') + '</td>') for r in row]) + '</tr>'
                 else:
                     section_time = re.search('actual time=([0-9]{,}\.[0-9]{,})\.\.([0-9]{,}\.[0-9]{,})', str(row[0]))
                     background_color = ""
