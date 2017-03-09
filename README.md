@@ -21,7 +21,9 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 <br/>&emsp;xi. [Notifications](#notifications)
 <br/>&emsp;xii. [`pg_dump` support](#pg_dump-support)
 <br/>&emsp;xiii. [Switch Engines](#switch-engines) (To be documented...)
-&emsp;<br/>• To dos
+&emsp;<br/>• <b>In development</b>
+<br/>&emsp;i. Built in PostGIS preview (inspired by [postgis-preview](https://github.com/NYCPlanning/postgis-preview)
+&emsp;<br/>• <b>To dos</b>
 <br/>&emsp;i. Add UI elements to perform basic, common database tasks, such as adding columns, creating tables, etc.
 <br/>&emsp;ii. Need to confirm install process is smooth on non-Mac computers.
 <br/>&emsp;iii. Add support for MySQL commands.
