@@ -32,7 +32,7 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 Open issues can be found <a href="https://github.com/tmthyjames/SQLCell/issues">here</a>.
 
 
-##Most recent feature
+## Most recent feature
 
 added 12/04/2016
 
