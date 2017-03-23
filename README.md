@@ -41,7 +41,7 @@ SQLCell now offers the option to view the Query Plan as a sankey graph built wit
 ![query_plan_sankey](images/query_plan_sankey.png)
 
 
-##Installation and configuration
+## Installation and configuration
 
 Just clone the repo and `cp` the `sqlcell_app.py` file to Jupyter's startup directory (on my computer, the directory is `~/.ipython/profile_default/startup`, but may be different depending on your OS and version of IPython/Jupyter):
 
@@ -66,9 +66,9 @@ See more about this option in the [Declare Engines](#declare-engines) section
 Now you are ready to ditch pgAdmin or whatever SQL interface you use. Continue reading to see all the available 
 options, like writing results to a CSV, using SQLAlchemy named parameters and more.
 
-##Features
+## Features
 
-###Parameters
+### Parameters
 
 Available parameters:
 <br/>• [`DB`](#db-parameter): Determines what database to query. On the first run, this parameter is required. After that, it will remember what database was chosen. To change databases, use this parameter again. Default is the last-specificed database.
@@ -85,7 +85,7 @@ Available parameters:
 
 Examples of how to use these are below.
 
-####`DB` Parameter
+#### `DB` Parameter
 After adding your connection details to engines.py, run your first query with the DB argument:
 
 	In [3]: %%sql DB=bls
@@ -110,7 +110,7 @@ To switch databases, just invoke the DB argument again with a different database
 	        FROM nba LIMIT 3
 <table class="table-striped table-hover" id="table9b65a0c1-3313-4e7c-9227-006f5c4d522b" width="100%"><thead><tr><th> </th><th>dateof</th><th>team</th><th>opp</th><th>pts</th><th>fg</th><th>fg_att</th><th>ft</th><th>ft_att</th><th>fg3</th><th>fg3_att</th><th>off_rebounds</th><th>def_rebounds</th><th>asst</th><th>blks</th><th>fouls</th><th>stls</th><th>turnovers</th></tr></thead><tbody><tr><td>1</td><td>2015-10-27</td><td>DET</td><td>ATL</td><td>106</td><td>37</td><td>96</td><td>20</td><td>26</td><td>12</td><td>29</td><td>23</td><td>36</td><td>23</td><td>3</td><td>15</td><td>5</td><td>15</td></tr><tr><td>2</td><td>2015-10-27</td><td>ATL</td><td>DET</td><td>94</td><td>37</td><td>82</td><td>12</td><td>15</td><td>8</td><td>27</td><td>7</td><td>33</td><td>22</td><td>4</td><td>25</td><td>9</td><td>15</td></tr><tr><td>3</td><td>2015-10-27</td><td>CLE</td><td>CHI</td><td>95</td><td>38</td><td>94</td><td>10</td><td>17</td><td>9</td><td>29</td><td>11</td><td>39</td><td>26</td><td>7</td><td>21</td><td>5</td><td>11</td></tr></tbody></table>
 
-####`PATH` Parameter
+#### `PATH` Parameter
 
 To write the data to a CSV, use the PATH argument:
 
@@ -120,7 +120,7 @@ To write the data to a CSV, use the PATH argument:
 <table class="table-striped table-hover" id="table9b65a0c1-3313-4e7c-9227-006f5c4d522b" width="100%"><thead><tr><th> </th><th>dateof</th><th>team</th><th>opp</th><th>pts</th><th>fg</th><th>fg_att</th><th>ft</th><th>ft_att</th><th>fg3</th><th>fg3_att</th><th>off_rebounds</th><th>def_rebounds</th><th>asst</th><th>blks</th><th>fouls</th><th>stls</th><th>turnovers</th></tr></thead><tbody><tr><td>1</td><td>2015-10-27</td><td>DET</td><td>ATL</td><td>106</td><td>37</td><td>96</td><td>20</td><td>26</td><td>12</td><td>29</td><td>23</td><td>36</td><td>23</td><td>3</td><td>15</td><td>5</td><td>15</td></tr><tr><td>2</td><td>2015-10-27</td><td>ATL</td><td>DET</td><td>94</td><td>37</td><td>82</td><td>12</td><td>15</td><td>8</td><td>27</td><td>7</td><td>33</td><td>22</td><td>4</td><td>25</td><td>9</td><td>15</td></tr><tr><td>3</td><td>2015-10-27</td><td>CLE</td><td>CHI</td><td>95</td><td>38</td><td>94</td><td>10</td><td>17</td><td>9</td><td>29</td><td>11</td><td>39</td><td>26</td><td>7</td><td>21</td><td>5</td><td>11</td></tr></tbody></table>
 
 
-####`MAKE_GLOBAL` parameter
+#### `MAKE_GLOBAL` parameter
 And my favorite. You can assign the dataframe to a variable like this useing the MAKE_GLOBAL argument:
 
 	In [9]: %%sql MAKE_GLOBAL=WHATEVER_NAME_YOU_WANT DB=bls
@@ -136,7 +136,7 @@ And call the variable:
 	In [10]: WHATEVER_NAME_YOU_WANT
 <table class="table-striped table-hover" id="table44533bf5-37d3-4988-a70d-fa05eeef28f9" width="100%"><thead><tr><th> </th><th>series_id</th><th>year</th><th>period</th><th>value</th><th>footnote_codes</th></tr></thead><tbody><tr><td>1</td><td>LASST470000000000003</td><td>1976</td><td>M01</td><td>6.2</td><td>None</td></tr><tr><td>2</td><td>LASST470000000000004</td><td>1976</td><td>M01</td><td>111152.0</td><td>None</td></tr><tr><td>3</td><td>LASST470000000000005</td><td>1976</td><td>M01</td><td>1691780.0</td><td>None</td></tr></tbody></table>
 
-####`RAW` Parameter
+#### `RAW` Parameter
 You can also return the raw RowProxy from SQLAlchemy by setting the RAW argument to `True` and using the `MAKE_GLOBAL`
 argument.
 
@@ -150,14 +150,14 @@ argument.
 	          (u'LASST470000000000003', 1976, u'M02', 6.1, None),
 	          (u'LASST470000000000003', 1976, u'M03', 6.0, None)]
 
-####`DISPLAY` Parameter
+#### `DISPLAY` Parameter
 Query the data without rendering the table (useful if the result set is prohibitively large and displaying the table breaks things) by setting the `DISPLAY` parameter to `False`. It makes sense to use this parameter in conjunction with the `MAKE_GLOBAL` parameter so the data is passed to the variable but the table isn't rendered:
 
 	In [10]: %%sql MAKE_GLOBAL=data DISPLAY=False
 	         SELECT * 
 	         FROM la_unemployment
 
-####`ENGINE` Parameter
+#### `ENGINE` Parameter
 The `ENGINE` parameter accepts any connection string and creates a connection based on that.
 
 	In [10]: %%sql ENGINE='postgresql://username:password@host:port/DB'
@@ -165,13 +165,13 @@ The `ENGINE` parameter accepts any connection string and creates a connection ba
 	         FROM la_unemployment
 	         LIMIT 3
     
-####`TRANSACTION_BLOCK` Parameter
+#### `TRANSACTION_BLOCK` Parameter
 Some SQL statements (`VACUUM`, `CREATE <db>`, `DROP <db>`, etc.) must be executed outside of a transaction block by setting the isolation level to 0 (see <a href="https://www.postgresql.org/docs/9.1/static/transaction-iso.html">this</a>)
 
 	In [10]: %%sql TRANSACTION_BLOCK=False
 	         VACUUM ANALYZE <table_name>
 		 
-####`EDIT` Parameter
+#### `EDIT` Parameter
 Enables inline editing.
 
 	In [10]: %%sql EDIT=True
@@ -181,18 +181,18 @@ Enables inline editing.
 
 Will display a table where the cells can be clicked on and edited.
 
-####`NOTIFY` Parameter
+#### `NOTIFY` Parameter
 
 	In [11]: %%sql NOTIFY=False
 	         SELECT * FROM la_unemployment LIMIT 1
 		 
 Will disable notifications for the remainder of your Jupyter session. To re-enable notifications, just set `NOTIFY=True`.
 
-###Flags
+### Flags
 <br/>• [`declare_engines`](#declare-engines): Makes adding engines to the engines.py file easy.
 <br/>• [`pg_dump`](#pg_dump-support): Run `--pg_dump` commands from your Jupyter Notebook.
 
-####Declare Engines
+#### Declare Engines
 All engines should be in this format: `name=connection_string`. For example:
 
 	%%sql --declare_engines new
@@ -214,7 +214,7 @@ To append new engines to an existing ENGINES object:
 Where I had the engines LOCAL, DEV, and PROD I now have LOCAL_test and DEV_test also.
 
 
-###`pg_dump` support
+### `pg_dump` support
 
 	In[17]: %%sql --pg_dump
 	        -t nba sports --schema-only
@@ -256,7 +256,7 @@ Will output the following:
 	ALTER TABLE nba OWNER TO postgres;
 
 
-###Pass Python variables to SQL
+### Pass Python variables to SQL
 
 To pass python variables to your queries, just do the following.
 
@@ -287,7 +287,7 @@ Both output the following table:
 		
 <table class="table-striped table-hover" id="tableea46889f-5850-4a5d-9b78-af10c7387e1d" width="100%"><thead><tr><th> </th><th>series_id</th><th>year</th><th>period</th><th>value</th><th>footnote_codes</th></tr></thead><tbody><tr><td>1</td><td>LASST470000000000003</td><td>1976</td><td>M01</td><td>6.2</td><td>None</td></tr><tr><td>2</td><td>LASST470000000000004</td><td>1976</td><td>M01</td><td>111152.0</td><td>None</td></tr><tr><td>3</td><td>LASST470000000000005</td><td>1976</td><td>M01</td><td>1691780.0</td><td>None</td></tr></tbody></table>
 
-###`psql` metacommands
+### `psql` metacommands
 
 	In [1]: %%sql DB=bls
 	        \dp
@@ -302,34 +302,34 @@ Both output the following table:
 		
 	Out[3]: <p>COPY 3092</p>
 
-###Multi-threading
+### Multi-threading
 
 All queries are executed on their own thread, so you can run as many queries as your box will allow while concurrently executing python code.
 
-###Buttons
+### Buttons
 
 ![lots_of_buttons](images/all_buttons.png)
 
 Buttons include </br> • Viewing Query Plan with d3.js sankey graph </br> • Running Explain Analyze on your query </br> • executing query </br> • executing query and returning SQLAlchemy results in a variable </br> • saving to a TSV </br> • stopping query </br> • swithcing between user-defined engines (button group on right; see [Declare Engines](#declare-engines) for instructions on how to define engines.)
 
-###Inline editing
+### Inline editing
 
 Set the `EDIT` parameter to `True` to enable inline editing. As long as you are querying one table and that table has a primary key, then you can edit it using the UI.
 
 ![inline editing](images/Screen Shot 2016-11-08 at 8.32.56 PM.png)
 
-###Easy to read Query Plan table
+### Easy to read Query Plan table
 This includes a heatmap-like color scale to indicate problem spots in your query.
 
 ![query_plan_table](images/query_plan_table.png)
 
-###Easy to read Query Plan graph
+### Easy to read Query Plan graph
 Sankey graph that uses a heatmap-like color scale to indicate problem spots in your query, built with D3.js.
 
 ![query_plan_sankey](images/query_plan_graph_diverse.png)
 
 
-###Alter Column Name and Type Inline
+### Alter Column Name and Type Inline
 
 To edit the column info via the UI, use the `\d <table-name>` metacommand and the `EDIT` parameter.
 
@@ -339,7 +339,7 @@ To edit the column info via the UI, use the `\d <table-name>` metacommand and th
 ![alter_column](images/alter_column.png)
 
 
-###Notifications
+### Notifications
 
 SQLCell now includes "Growl"-like, Bootstrap-styled notifications using [mouse0270](https://twitter.com/Mouse0270)'s awesome [bootstrap-notify](https://github.com/mouse0270/bootstrap-notify). The entire query is in the `pre` tag and scrollable, and clicking the notification will focus the window on the results of that query.
 
