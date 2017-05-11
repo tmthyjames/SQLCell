@@ -23,6 +23,7 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 <br/>&emsp;xiii. [Switch Engines](#switch-engines) (To be documented...)
 &emsp;<br/>• <b>In development</b>
 <br/>&emsp;i. Built-in PostGIS preview (inspired by [postgis-preview](https://github.com/NYCPlanning/postgis-preview)
+<br/>&emsp;ii. MSSQL support.
 &emsp;<br/>• <b>To dos</b>
 <br/>&emsp;i. Add UI elements to perform basic, common database tasks, such as adding columns, creating tables, etc.
 <br/>&emsp;ii. Need to confirm install process is smooth on non-Mac computers.
