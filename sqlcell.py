@@ -315,7 +315,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
                 $('#saveData"""+unique_id+"""').on('click', function(){
                     if (!$(this).hasClass('disabled')){
-                        saveData(`"""+''+"""`, 'test.tsv');
+                        saveData(`"""+str_data+"""`, 'data.tsv');
                     }
                 });
                 $('#tableData"""+unique_id+"""').append(
