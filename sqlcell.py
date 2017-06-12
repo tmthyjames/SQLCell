@@ -209,18 +209,17 @@ def _SQL(path, cell, __KERNEL_VARS__):
         columns = data.keys()
         if data.returns_rows:
             table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
-            if 'DISPLAY' in locals():
-                if not DISPLAY:
-                    if 'MAKE_GLOBAL' in locals():
-                        exec('__builtin__.' + glovar[1] + '=table_data')
-                    else:
-                        exec('__builtin__.DATA=table_data')
-                        glovar = ['', 'DATA']
-                    print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
-                    print 'Rows:', len(table_data), '|',
-                    print 'DB:', engine.url.database, '| Host:', engine.url.host
-                    print 'data not displayed but captured in variable: ' + glovar[1]
-                    return None
+            if hasattr(__SQLCell_GLOBAL_VARS__, 'DISPLAY') and __SQLCell_GLOBAL_VARS__.DISPLAY is False:
+                if 'MAKE_GLOBAL' in locals():
+                    exec('__builtin__.' + glovar[1] + '=table_data')
+                else:
+                    exec('__builtin__.DATA=table_data')
+                    glovar = ['', 'DATA']
+                print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
+                print 'Rows:', len(table_data), '|',
+                print 'DB:', engine.url.database, '| Host:', engine.url.host
+                print 'data not displayed but captured in variable: ' + glovar[1]
+                return None
             df = to_table(table_data)
         else:
             display(
