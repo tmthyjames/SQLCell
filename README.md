@@ -317,7 +317,7 @@ Buttons include </br> • Viewing Query Plan with d3.js sankey graph </br> • R
 
 Set the `EDIT` parameter to `True` to enable inline editing. As long as you are querying one table and that table has a primary key, then you can edit it using the UI.
 
-![inline editing](images/Screen Shot 2016-11-08 at 8.32.56 PM.png)
+![inline editing](images/inline_editing.png)
 
 ### Easy to read Query Plan table
 This includes a heatmap-like color scale to indicate problem spots in your query.
