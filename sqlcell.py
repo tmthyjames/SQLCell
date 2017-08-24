@@ -153,7 +153,6 @@ def _SQL(path, cell, __KERNEL_VARS__):
             flag = i.replace('--', '')
             try:
                 flag_output = eval_flag(flag)(cell, mode=mode, __SQLCell_GLOBAL_VARS__=__SQLCell_GLOBAL_VARS__)
-                print flag_output
                 flag_output_html = flag_output.replace('\n', '<br/>').replace('    ', '&nbsp;&nbsp;&nbsp;&nbsp;')
                 display(
                     Javascript(
