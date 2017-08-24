@@ -43,7 +43,7 @@ def pg_dump(cell, **kwargs):
     p.stdin.flush()
     stdout, stderr = p.communicate()
     rc = p.returncode
-    if not stdout: 
+    if not stdout and stderr: 
         raise Exception(stderr)
     return stdout
 

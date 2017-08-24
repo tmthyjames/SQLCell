@@ -10,7 +10,13 @@ def buttons_js(unique_id, __ENGINES_JSON_DUMPS__, unique_db_id, db):
             position:absolute; 
         }
         #table'''+unique_id+'''{
-            padding-top: 40px;
+            padding-top: 60px;
+        }
+        .page__content p {
+            margin: inherit !important;
+        }
+        .smallfont {
+            font-size: 12px !important;
         }
         </style>
         <div class="row" id="childDiv'''+unique_id+'''">
@@ -28,42 +34,7 @@ def buttons_js(unique_id, __ENGINES_JSON_DUMPS__, unique_db_id, db):
         <div class="table" id="table'''+unique_id+'''"></div>
         <script type="text/Javascript">
 
-            (function($) {
-                var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
 
-                $.fn.attrchange = function(callback) {
-                    if (MutationObserver) {
-                        var options = {
-                            subtree: false,
-                            attributes: true
-                        };
-
-                        var observer = new MutationObserver(function(mutations) {
-                            mutations.forEach(function(e) {
-                                callback.call(e.target, e.attributeName);
-                            });
-                        });
-
-                        return this.each(function() {
-                            observer.observe(this, options);
-                        });
-
-                    }
-                }
-            } )(jQuery);
-            $("#childDiv'''+unique_id+'''").parents('.code_cell').attrchange(function(attrName){
-                if (attrName=='class'){
-                    if ($(this).hasClass('unselected')){
-                        $("#childDiv'''+unique_id+'''").find('button').each(function(i, obj){
-                            $(obj).addClass('disabled');
-                        });
-                    } else if ($(this).hasClass('selected')){
-                        $("#childDiv'''+unique_id+'''").find('button').each(function(i, obj){
-                            $(obj).removeClass('disabled');
-                        });
-                    }
-                }
-            });
 
 
         
@@ -255,7 +226,7 @@ def sankey_js(unique_id, query_plan_depth, query_plan):
         <div id='table"""+unique_id+"""'></div>
         <script>
         var margin = {top: 10,right: 1,bottom: 6,left: 1},
-            width = Math.max("""+str(query_plan_depth*125)+""", 1000) - margin.left - margin.right,
+            width = Math.max("""+str(query_plan_depth*200)+""", 1000) - margin.left - margin.right,
             height = 500 - margin.bottom;
 
         var formatNumber = d3.format(",.0f"),
@@ -440,8 +411,9 @@ def psql_table_js(unique_id, table_name):
     table = """
         $('#table%s').editableTableWidget({preventColumns:[1]});
         $('#table%s').on('change', function(evt, newValue){
+            console.log(evt)
             var tableName = '%s';
-            var oldValue = evt.target.attributes[0].value;
+            var oldValue = evt.target.dataset.column;
             var th = $('#table%s th').eq(evt.target.cellIndex);
             var columnName = th.text();
             var SQLText;
@@ -524,7 +496,7 @@ def info_bar_js(unique_id, flag_output_html, flag_output, ENGINE):
 def finished_query_js(unique_id, t1, engine):
     query_info = """
         $('#tableData"""+unique_id+"""').append(
-            '<p id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
+            '<p class="smallfont" id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
             +'DB: %s | Host: %s</p>'
         )
     """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
