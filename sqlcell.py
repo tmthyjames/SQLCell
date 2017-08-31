@@ -142,7 +142,9 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
     display(HTML(
         """
+        <script>
         $('.kernel_indicator_name')[0].innerHTML = '{engine}'
+        </script>
         """.format(engine=engine.url.host)
     ))
 
@@ -249,11 +251,13 @@ def _SQL(path, cell, __KERNEL_VARS__):
             display(
                 HTML(
                     """
+                    <script>
                         $('#tableData%s').append(
                             `%s`
                             +"<p class='smallfont' id='dbinfo%s'>To execute: %s sec | "
                             +'DB: %s | Host: %s'
                         )
+                    </script>
                     """  % (unique_id, str(stderr), unique_id, str(round(t1, 3)), engine.url.database, engine.url.host)
                 )
             )
@@ -275,6 +279,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         display(
             HTML(
                 """
+                <script>
                     $("#cancelQuery"""+unique_id+"""").addClass('disabled')
 
                     $('#tableData"""+unique_id+"""').append(
@@ -282,6 +287,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                         +'Rows: %s | '
                         +'DB: %s | Host: %s'
                     )
+                </script>
                 """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
             )
         )
@@ -312,6 +318,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
     display(
         HTML(
             """
+            <script>
                 $('#saveData"""+unique_id+"""').removeClass('disabled');
                 $("#cancelQuery"""+unique_id+"""").addClass('disabled')
 
@@ -325,6 +332,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     +'Rows: %s | '
                     +'DB: %s | Host: %s'
                 )
+            </script>
             """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
         )
     )

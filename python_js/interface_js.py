@@ -179,6 +179,7 @@ def buttons_js(unique_id, __ENGINES_JSON_DUMPS__, unique_db_id, db):
 
 def notify_js(unique_id, cell, t1, df, engine, timer):
     notification = """
+        <script>
         if ($.notify && %s > %s){
             $.notify({},{
                 delay: 5000,
@@ -199,6 +200,7 @@ def notify_js(unique_id, cell, t1, df, engine, timer):
         } else {
             console.log('$.notify is not a function. trouble loading bootstrap-notify.')
         }
+        </script>
     """ % (t1, timer, unique_id, cell.replace("\\", "\\\\"), str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
     return notification
 
@@ -353,6 +355,7 @@ def sankey_js(unique_id, query_plan_depth, query_plan):
 
 def table_js(unique_id, table_name, primary_key):
     table = """
+        <script>
         $('#table%s').editableTableWidget({preventColumns:[1,2]});
         $('#table%s').on('change', function(evt, newValue){
             var oldValue = evt.target.attributes[1].value, oldValueMatch;
@@ -410,11 +413,13 @@ def table_js(unique_id, table_name, primary_key):
                 );
             }
         });
+        </script>
         """ % (unique_id, unique_id, unique_id, table_name, primary_key, unique_id, unique_id, unique_id)
     return table
 
 def psql_table_js(unique_id, table_name):
     table = """
+        <script>
         $('#table%s').editableTableWidget({preventColumns:[1]});
         $('#table%s').on('change', function(evt, newValue){
             console.log(evt)
@@ -453,11 +458,13 @@ def psql_table_js(unique_id, table_name):
                 }
             );
         });
+        </script>
         """ % (unique_id, unique_id, table_name, unique_id, unique_id)
     return table
 
 def load_js_scripts():
     scripts = """
+            <script>
             $.getScript('//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js', function(resp, status){
                 $('head').append(
                     '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
@@ -475,11 +482,13 @@ def load_js_scripts():
             $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
                 console.log(resp, status, 'editableTableWidget')
             });
+            </script>
         """
     return scripts
 
 def info_bar_js(unique_id, flag_output_html, flag_output, ENGINE):
     info = """
+            <script>
             $('#table{id}').append('{msg}');
             $('#table{id}').append(`{flag_output_html}`);
 
@@ -491,6 +500,7 @@ def info_bar_js(unique_id, flag_output_html, flag_output, ENGINE):
                     saveData(`{flag_output}`, 'create.txt');
                 }}
             }});
+            </script>
         """.format(
             id=unique_id, 
             flag_output_html=flag_output_html,
@@ -501,10 +511,12 @@ def info_bar_js(unique_id, flag_output_html, flag_output, ENGINE):
 
 def finished_query_js(unique_id, t1, engine):
     query_info = """
+        <script>
         $('#tableData"""+unique_id+"""').append(
             '<p class="smallfont" id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
             +'DB: %s | Host: %s</p>'
         )
+        </script>
     """  % (str(round(t1, 3)), engine.url.database, engine.url.host)
     return query_info
 
