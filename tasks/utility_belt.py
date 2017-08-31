@@ -90,7 +90,7 @@ class HTMLTable(list):
     def display(self, columns=[], msg=None):
         data = self.data if len(self.data) <= 100 else self.data[:49] + [['...'] * (len(self.data[0]))] + self.data[-49:]
         table_str = HTMLTable([columns] + data, self.id_)._repr_html_(n_rows=100, length=len(self.data))
-        table_str = table_str.replace('<table', '<table class="table-striped table-hover"').replace("'", "\\'").replace('\n','')
+        table_str = table_str.replace('<table', '<table class="table-striped table-hover table-bordered"').replace("'", "\\'").replace('\n','')
         display(
             Javascript(
                 """
