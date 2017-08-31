@@ -2,7 +2,7 @@ import threading
 import csv
 import re
 from sqlalchemy import create_engine
-from IPython.display import display, Javascript
+from IPython.display import display, Javascript, HTML
 
 from ..python_js.interface_js import load_js_scripts
 
