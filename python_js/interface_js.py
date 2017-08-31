@@ -20,6 +20,7 @@ def buttons_js(unique_id, __ENGINES_JSON_DUMPS__, unique_db_id, db):
         }
         .rendered_html tr, .rendered_html th, .rendered_html td {
             max-width: none !important;
+            text-align: inherit !important;
         }
         .rendered_html table {
             table-layout: unset !important;
