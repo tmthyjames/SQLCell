@@ -226,7 +226,7 @@ def sankey_js(unique_id, query_plan_depth, query_plan):
         <div id='table"""+unique_id+"""'></div>
         <script>
         var margin = {top: 10,right: 1,bottom: 6,left: 1},
-            width = Math.max("""+str(query_plan_depth*200)+""", 1000) - margin.left - margin.right,
+            width = Math.max("""+str(query_plan_depth*300)+""", 1000) - margin.left - margin.right,
             height = 500 - margin.bottom;
 
         var formatNumber = d3.format(",.0f"),
