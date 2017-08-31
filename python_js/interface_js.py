@@ -18,6 +18,12 @@ def buttons_js(unique_id, __ENGINES_JSON_DUMPS__, unique_db_id, db):
         .smallfont {
             font-size: 12px !important;
         }
+        .rendered_html tr, .rendered_html th, .rendered_html td {
+            max-width: none !important;
+        }
+        .rendered_html table {
+            table-layout: unset !important;
+        }
         </style>
         <div class="row" id="childDiv'''+unique_id+'''">
             <div class="btn-group col-md-3">
