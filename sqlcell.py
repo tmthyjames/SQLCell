@@ -16,7 +16,6 @@ import functools
 from os.path import expanduser
 
 import IPython
-from IPython.display import Javascript
 from IPython.core.display import display, HTML
 
 from sqlalchemy import create_engine, exc
@@ -141,7 +140,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         )
     )
 
-    display(Javascript(
+    display(HTML(
         """
         $('.kernel_indicator_name')[0].innerHTML = '{engine}'
         """.format(engine=engine.url.host)
@@ -155,7 +154,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 flag_output = eval_flag(flag)(cell, mode=mode, __SQLCell_GLOBAL_VARS__=__SQLCell_GLOBAL_VARS__)
                 flag_output_html = flag_output.replace('\n', '<br/>').replace('    ', '&nbsp;&nbsp;&nbsp;&nbsp;')
                 display(
-                    Javascript(
+                    HTML(
                         info_bar_js(unique_id, flag_output_html, flag_output, __SQLCell_GLOBAL_VARS__.ENGINE)
                     )
                 )
@@ -191,7 +190,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             return None
         except exc.ResourceClosedError as e:
             display(
-                Javascript(
+                HTML(
                     finished_query_js(unique_id, t1, engine)
                 )
             )
@@ -226,7 +225,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             df = to_table(table_data)
         else:
             display(
-                Javascript(
+                HTML(
                     finished_query_js(unique_id, t1, engine)
                 )
             )
@@ -248,7 +247,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         t1 = time.time() - t0
         if '<table border=' not in stdout: # if tabular, psql will send back as a table because of the -H option
             display(
-                Javascript(
+                HTML(
                     """
                         $('#tableData%s').append(
                             `%s`
@@ -274,7 +273,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
     if df.empty:
         display(
-            Javascript(
+            HTML(
                 """
                     $("#cancelQuery"""+unique_id+"""").addClass('disabled')
 
@@ -311,7 +310,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
     sql_sample = cell[:] if len(cell) < 100 else cell[:100] + " ..."
     
     display(
-        Javascript(
+        HTML(
             """
                 $('#saveData"""+unique_id+"""').removeClass('disabled');
                 $("#cancelQuery"""+unique_id+"""").addClass('disabled')
@@ -332,7 +331,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
     
     if __SQLCell_GLOBAL_VARS__.NOTIFY:           
         display(
-            Javascript(
+            HTML(
                 notify_js(unique_id, cell, t1, df, engine, 0 if isinstance(__SQLCell_GLOBAL_VARS__.NOTIFY, bool) else __SQLCell_GLOBAL_VARS__.NOTIFY)
             )
         )
@@ -390,7 +389,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
                 HTMLTable(table_data, unique_id).display(columns, msg=' | EDIT MODE')
 
                 display(
-                    Javascript( 
+                    HTML( 
                         table_js(unique_id, table_name, primary_key)
                     )
                 )
@@ -405,7 +404,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             if table_match:
                 HTMLTable(table_data, unique_id).display(columns, msg=' | ALTER TABLE')
                 display(
-                    Javascript(
+                    HTML(
                         psql_table_js(unique_id, table_name)
                     )
                 )
