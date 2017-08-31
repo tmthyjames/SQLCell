@@ -179,7 +179,7 @@ def buttons_js(unique_id, __ENGINES_JSON_DUMPS__, unique_db_id, db):
 
 def notify_js(unique_id, cell, t1, df, engine, timer):
     notification = """
-        <script>
+        <script type="text/Javascript">
         if ($.notify && %s > %s){
             $.notify({},{
                 delay: 5000,
@@ -232,7 +232,7 @@ def sankey_js(unique_id, query_plan_depth, query_plan):
         }
         </style>
         <div id='table"""+unique_id+"""'></div>
-        <script>
+        <script type="text/Javascript">
         var margin = {top: 10,right: 1,bottom: 6,left: 1},
             width = Math.max("""+str(query_plan_depth*300)+""", 1000) - margin.left - margin.right,
             height = 500 - margin.bottom;
@@ -355,7 +355,7 @@ def sankey_js(unique_id, query_plan_depth, query_plan):
 
 def table_js(unique_id, table_name, primary_key):
     table = """
-        <script>
+        <script type="text/Javascript">
         $('#table%s').editableTableWidget({preventColumns:[1,2]});
         $('#table%s').on('change', function(evt, newValue){
             var oldValue = evt.target.attributes[1].value, oldValueMatch;
@@ -419,7 +419,7 @@ def table_js(unique_id, table_name, primary_key):
 
 def psql_table_js(unique_id, table_name):
     table = """
-        <script>
+        <script type="text/Javascript">
         $('#table%s').editableTableWidget({preventColumns:[1]});
         $('#table%s').on('change', function(evt, newValue){
             console.log(evt)
@@ -464,7 +464,7 @@ def psql_table_js(unique_id, table_name):
 
 def load_js_scripts():
     scripts = """
-            <script>
+            <script type="text/Javascript">
             $.getScript('//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js', function(resp, status){
                 $('head').append(
                     '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
@@ -488,7 +488,7 @@ def load_js_scripts():
 
 def info_bar_js(unique_id, flag_output_html, flag_output, ENGINE):
     info = """
-            <script>
+            <script type="text/Javascript">
             $('#table{id}').append('{msg}');
             $('#table{id}').append(`{flag_output_html}`);
 
@@ -511,7 +511,7 @@ def info_bar_js(unique_id, flag_output_html, flag_output, ENGINE):
 
 def finished_query_js(unique_id, t1, engine):
     query_info = """
-        <script>
+        <script type="text/Javascript">
         $('#tableData"""+unique_id+"""').append(
             '<p class="smallfont" id=\"dbinfo"""+unique_id+"""\"><strong style="color:#d9534f;">Query finished...</strong> | To execute: %s sec | '
             +'DB: %s | Host: %s</p>'

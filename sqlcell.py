@@ -142,7 +142,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
 
     display(HTML(
         """
-        <script>
+        <script type="text/Javascript">
         $('.kernel_indicator_name')[0].innerHTML = '{engine}'
         </script>
         """.format(engine=engine.url.host)
@@ -251,7 +251,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
             display(
                 HTML(
                     """
-                    <script>
+                    <script type="text/Javascript">
                         $('#tableData%s').append(
                             `%s`
                             +"<p class='smallfont' id='dbinfo%s'>To execute: %s sec | "
@@ -279,7 +279,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
         display(
             HTML(
                 """
-                <script>
+                <script type="text/Javascript">
                     $("#cancelQuery"""+unique_id+"""").addClass('disabled')
 
                     $('#tableData"""+unique_id+"""').append(
@@ -318,7 +318,7 @@ def _SQL(path, cell, __KERNEL_VARS__):
     display(
         HTML(
             """
-            <script>
+            <script type="text/Javascript">
                 $('#saveData"""+unique_id+"""').removeClass('disabled');
                 $("#cancelQuery"""+unique_id+"""").addClass('disabled')
 
