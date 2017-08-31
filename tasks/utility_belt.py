@@ -92,10 +92,12 @@ class HTMLTable(list):
         table_str = HTMLTable([columns] + data, self.id_)._repr_html_(n_rows=100, length=len(self.data))
         table_str = table_str.replace('<table', '<table class="table-striped table-hover table-bordered"').replace("'", "\\'").replace('\n','')
         display(
-            Javascript(
+            HTML(
                 """
+                <script type="text/Javascript">
                 $('#dbinfo{id}').append('{msg}');
                 $('#table{id}').append('{table}');
+                </script>
                 """.format(msg=str(msg), table=table_str, id=self.id_)
             )
         )

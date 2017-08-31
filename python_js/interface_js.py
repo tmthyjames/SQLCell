@@ -464,7 +464,6 @@ def psql_table_js(unique_id, table_name):
 
 def load_js_scripts():
     scripts = """
-            <script type="text/Javascript">
             $.getScript('//rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/js/bootstrap-notify.min.js', function(resp, status){
                 $('head').append(
                     '<link rel="stylesheet" href="//cdn.rawgit.com/tmthyjames/SQLCell/feature/%2361-sqlcell/css/animate.css" type="text/css" />' 
@@ -482,7 +481,6 @@ def load_js_scripts():
             $.getScript('//cdn.rawgit.com/tmthyjames/SQLCell/bootstrap-notify/js/editableTableWidget.js', function(resp, status){
                 console.log(resp, status, 'editableTableWidget')
             });
-            </script>
         """
     return scripts
 
