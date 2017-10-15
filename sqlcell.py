@@ -16,7 +16,7 @@ import functools
 from os.path import expanduser
 
 import IPython
-from IPython.core.display import display, HTML
+from IPython.core.display import display, HTML, Javascript
 
 from sqlalchemy import create_engine, exc
 
@@ -26,6 +26,40 @@ from .python_js.interface_js import buttons_js, notify_js, sankey_js, table_js, 
 from .tasks.params import __SQLCell_GLOBAL_VARS__, unique_db_id, engine, application_name
 from .tasks.utility_belt import threaded, HTMLTable, ParseNodes, build_dict, kill_last_pid, load_js_files
 from .tasks.flags import declare_engines, pg_dump, eval_flag
+
+from jupyter_client import BlockingKernelClient
+
+try:
+    from Queue import Empty
+except:
+    from queue import Empty
+
+
+__kernel_client__ = BlockingKernelClient(connection_file=__SQLCell_GLOBAL_VARS__.__CONNECTION_FILE__)
+__kernel_client__.load_connection_file()
+__kernel_client__.start_channels()
+
+# the below trasported code subclasses list to allow for:
+# 1) easy pd.DataFrame conversion on the spot
+# 2) "passing" namedtuples to the kernel for indexing
+results_class = """ 
+import pandas as pd
+from collections import namedtuple
+
+class Results(list):
+    def __init__(self, *args, **kwargs):
+        self.data = args[0]
+        self.columns = args[1]
+        ColumnCreator = namedtuple('keys', self.columns)
+        for n,row in enumerate(self.data):
+            self.data[n] = ColumnCreator(*self.data[n])
+        super(Results, self).__init__(self.data)
+        
+    @property
+    def df(self):
+        return pd.DataFrame(self.data)
+"""
+__kernel_client__.execute(results_class)
 
 
 class __KERNEL_VARS__(object):
@@ -209,15 +243,16 @@ def _SQL(path, cell, __KERNEL_VARS__):
         t1 = time.time() - t0
         columns = data.keys()
         if data.returns_rows:
-            table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
+            row_set = [i for i in data]
+            table_data = row_set if 'pd' in globals() else [columns] + [i for i in data]
             if hasattr(__SQLCell_GLOBAL_VARS__, 'DISPLAY') and __SQLCell_GLOBAL_VARS__.DISPLAY is False:
                 if 'MAKE_GLOBAL' in locals():
                     var_name = make_global_param[1]
-                    exec('__builtin__.' + var_name + '=table_data')
+                    __kernel_client__.execute(var_name +'=table_data')
                 else:
                     var_name = 'DATA'
-                    exec('__builtin__.DATA=table_data')
-                    glovar = ['', 'DATA']
+                    __kernel_client__.execute(var_name+'={data}'.format(data=table_data))
+                    glovar = ['', var_name]
                 print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
                 print 'Rows:', len(table_data), '|',
                 print 'DB:', engine.url.database, '| Host:', engine.url.host
@@ -305,8 +340,11 @@ def _SQL(path, cell, __KERNEL_VARS__):
             __SQLCell_GLOBAL_VARS__.PATH = False
 
     if 'MAKE_GLOBAL' in locals():   
-        exec('__builtin__.' + make_global_param[1] + '=df if not __SQLCell_GLOBAL_VARS__.RAW else table_data')
-        __SQLCell_GLOBAL_VARS__.RAW = False
+        # exec('__builtin__.' + make_global_param[1] + '=df if not __SQLCell_GLOBAL_VARS__.RAW else table_data')
+        __kernel_client__.shell_channel.get_msgs()
+        msg_id = __kernel_client__.execute('foo=Results({0}, {1})'.format(row_set, columns))
+        __SQLCell_GLOBAL_VARS__.__DEBUG__['iopub'] = __kernel_client__, __kernel_client__.iopub_port
+        time.sleep(0.1)
         
 
     str_data = df.to_csv(sep="\t", encoding='utf-8') # for downloading
@@ -316,9 +354,8 @@ def _SQL(path, cell, __KERNEL_VARS__):
     sql_sample = cell[:] if len(cell) < 100 else cell[:100] + " ..."
     
     display(
-        HTML(
+        Javascript(
             """
-            <script type="text/Javascript">
                 $('#saveData"""+unique_id+"""').removeClass('disabled');
                 $("#cancelQuery"""+unique_id+"""").addClass('disabled')
 
@@ -332,7 +369,6 @@ def _SQL(path, cell, __KERNEL_VARS__):
                     +'Rows: %s | '
                     +'DB: %s | Host: %s'
                 )
-            </script>
             """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
         )
     )

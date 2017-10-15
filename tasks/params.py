@@ -7,6 +7,9 @@ from ..engines.engine_config import driver, username, password, host, port, defa
 from ..engines.engines import __ENGINES_JSON_DUMPS__, __ENGINES_JSON__
 from .utility_belt import kill_last_pid, HTMLTable
 
+from jupyter_client import find_connection_file
+
+
 unique_db_id = str(uuid.uuid4())
 jupyter_id = 'jupyter' + unique_db_id
 application_name = '?application_name='+jupyter_id
@@ -31,9 +34,13 @@ class __SQLCell_GLOBAL_VARS__(object):
     RAW = False
     NOTIFY = True
 
+    __CONNECTION_FILE__ = find_connection_file()
+
     logger = logging.getLogger()
     handler = logging.StreamHandler()
     logger.setLevel(logging.DEBUG)
+
+    __DEBUG__ = {}
 
     def kill_last_pid_on_new_thread(self, app, db, unique_id):
         t = threading.Thread(target=kill_last_pid, args=(app, db))
