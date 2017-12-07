@@ -1,6 +1,12 @@
 # SQLCell
 Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threaded SQL in an IPython Notebook while concurrently executing python cells, and a ton of other features.
 
+See the tutorials here: 
+
+[Part 1: The Basics](https://tmthyjames.github.io/projects/SQLCell-Part-I/)
+
+[Part 2: Beyond The Basics](https://tmthyjames.github.io/tools/projects/SQLCell-Part-II/)
+
 ![SQLCell preview](images/initial_query_lg.png)
 
 		    
