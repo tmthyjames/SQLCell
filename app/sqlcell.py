@@ -113,6 +113,8 @@ class SQLCell(Magics, DBSessionHandler):
         ########################## HookHandler logic ########################
         hook_handler = HookHandler(engine)
         if hook:
+            if cell == 'list': 
+                return hook_handler.list()
             hook_handler.add(line, cell)
             return ('Hook successfully registered')
         
