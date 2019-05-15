@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine    
 from db.session import DBSessionHandler
 
 class HookHandler(DBSessionHandler):
@@ -49,6 +49,10 @@ class HookHandler(DBSessionHandler):
             hook_engine = create_engine(hook_query.engine)
         self.hook_engine = hook_engine
         return hook_engine, hook_cmd.format(*cmd_args)
+
+    def list(self, *srgs, **kwargs):
+        for row in self.session.query(self.Hooks).all():
+            print(row.key, "|", row.cmd, " | Engine: ", row.engine)
     
     def refresh(self, cell):
         self.session.query(Hooks).delete()
