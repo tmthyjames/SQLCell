@@ -19,3 +19,7 @@ class EngineHandler(DBSessionHandler):
     def refresh(self, cell):
         self.session.query(self.Engines).delete()
         self.session.commit()
+
+    def alias(self):
+        "allow alias for each engine"
+        pass
