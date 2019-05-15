@@ -8,73 +8,9 @@ from sqlalchemy import desc, asc
 from sqlalchemy.engine.base import Engine
 import pandas as pd
 import pickle
-from IPython.display import display, Javascript
-from ipywidgets import Button, HBox, VBox
-from multiprocessing.pool import ThreadPool
-import argparse
-import shlex
+from db.engine import EngineHandler, DBSessionHandler
+from args.line_args import ArgHandler
 
-
-class ArgHandler(object):
-    def __init__(self, line):
-        self.parser = argparse.ArgumentParser(description='SQLCell arguments')
-        self.parser.add_argument(
-            "-e", "--engine", 
-            help='Engine param, specify your connection string: --engine=postgresql://user:password@localhost:5432/mydatabase', 
-            required=False
-        )
-        self.parser.add_argument(
-            "-v", "--var", 
-            help='Variable name to write output to: --var=foo', 
-            required=False
-        )
-        self.parser.add_argument(
-            "-b", "--background", 
-            help='whether to run query in background or not: --background runs in background', 
-            required=False, default=False, action="store_true"
-        )
-        self.parser.add_argument(
-            "-k", "--hook", 
-            help='define shortcuts with the --hook param',
-            required=False, default=False, action="store_true"
-        )
-        self.parser.add_argument(
-            "-r", "--refresh", 
-            help='refresh engines by specifying --refresh flag',
-            required=False, default=False, action="store_true"
-        )
-        self.args = self.parser.parse_args(shlex.split(line))
-
-class DBSessionHandler(object):
-    def __init__(self):
-        Base = automap_base()
-        engine = create_engine("sqlite:///sqlcell.db")
-        Base.prepare(engine, reflect=True)
-        self.classes = Base.classes
-        self.tables = Base.metadata.tables.keys()
-        self.Sqlcell = Base.classes.sqlcell
-        self.Engines = Base.classes.engines
-        self.Hooks = Base.classes.hooks
-        Session = sessionmaker(autoflush=False)
-        Session.configure(bind=engine)
-        self.session = Session()
-
-        dbs = self.session.query(self.Engines).all()
-        self.db_info = {}
-        for row in dbs:
-            engine = row.engine
-            self.db_info[row.db] = engine
-            self.db_info[engine] = engine
-            self.db_info[row.host] = engine
-            
-    def recycle(self):
-        pass
-    
-    def create(self):
-        pass
-    
-    def dispose(self):
-        pass
             
 class HookHandler(DBSessionHandler):
     """input common queries to remember with a key/value pair. ie, 
@@ -250,55 +186,6 @@ class SQLCell(Magics, DBSessionHandler):
         self.db_info = SQLCell(self.shell, self.data).db_info 
         SQLCell.current_engine = engine
         return results
-    
-class TabCompleter(DBSessionHandler):
-    pass
-    
-class BackgroundHandler(object):
-    """bg=True"""
-    pass
-
-class ControlPanel(object):
-    # def run_btn_callback(evt): # figure out how to execute a cell
-    #     Javascript("""
-    #         var CodeCell = __webpack_require__(/*! @jupyterlab/cells */ "USP6").CodeCell
-    #         CodeCell.execute()
-    #     """)
-
-
-    # def get_control_panel(): # remove until I can get JS working
-    #     run_btn = Button(description='run')
-    #     run_btn.on_click(run_btn_callback)
-    #     stop_btn = Button(description='stop')
-    #     bg_btn = Button(description='bg')
-
-    #     left_box = VBox([run_btn])
-    #     center_box = VBox([stop_btn])
-    #     right_box = VBox([bg_btn])
-    #     control_panel = HBox([left_box, center_box, right_box])
-    #     return control_panel
-    pass
-
-
-class EngineHandler(DBSessionHandler):
-    """remove all engines from sqlcell.db:
-       %%sql refresh
-       may have to use @cell_line_magic.
-       add multiple new engines:
-       %%sql add
-       foo=<engine str>
-       bar=<another engine str>
-       baz=<another engine str>"""
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-        
-    def view(self):
-        "show all alias/engines"
-        pass
-    
-    def refresh(self, cell):
-        self.session.query(self.Engines).delete()
-        self.session.commit()
 
 
 def load_ipython_extension(ipython):
