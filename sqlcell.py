@@ -1,458 +1,306 @@
-# __builtin__'s used with MAKE_GLOBAL param so data can 
-# be passed from this module to the notebook without referencing 
-# a class or any other object. We can just call the variable that's
-# passed to MAKE_GLOBAL 
-import __builtin__
-import re
-import fileinput
-import time
-import uuid
-import subprocess
-import sys
-import threading
-import logging
-import json
-import functools
-from os.path import expanduser
-
-import IPython
-from IPython.core.display import display, HTML
-
-from sqlalchemy import create_engine, exc
-
-from .engines.engine_config import driver, username, password, host, port, default_db
-from .engines.engines import __ENGINES_JSON_DUMPS__, __ENGINES_JSON__
-from .python_js.interface_js import buttons_js, notify_js, sankey_js, table_js, psql_table_js, load_js_scripts, info_bar_js, finished_query_js
-from .tasks.params import __SQLCell_GLOBAL_VARS__, unique_db_id, engine, application_name
-from .tasks.utility_belt import threaded, HTMLTable, ParseNodes, build_dict, kill_last_pid, load_js_files
-from .tasks.flags import declare_engines, pg_dump, eval_flag
+from IPython.core.magic import (Magics, magics_class, line_magic,
+                                cell_magic, line_cell_magic)
+from sqlalchemy import create_engine
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import create_engine
+from sqlalchemy import desc, asc
+from sqlalchemy.engine.base import Engine
+import pandas as pd
+import pickle
+from IPython.display import display, Javascript
+from ipywidgets import Button, HBox, VBox
+from multiprocessing.pool import ThreadPool
+import argparse
+import shlex
 
 
-class __KERNEL_VARS__(object):
-    g = {}
-
-
-class QUERY(object):
-    raw = ''
-    history = []
-
-try:
-    import pandas as pd
-    pd.options.display.max_columns = None
-    pd.set_option('display.max_colwidth', -1)
-    to_table = pd.DataFrame
-except ImportError as e:
-    to_table = HTMLTable
-
-
-def _SQL(path, cell, __KERNEL_VARS__):
-    """
-    Create magic cell function to treat cell text as SQL
-    to remove the need of third party SQL interfaces. The 
-    args are split on spaces so don't use spaces except to 
-    input a new argument.
-    Args:
-        PATH (str): path to write dataframe to in csv.
-        MAKE_GLOBAL: make dataframe available globally.
-        DB: name of database to connect to.
-        RAW: when used with MAKE_GLOBAL, will return the
-            raw RowProxy from sqlalchemy.
-    Returns:
-        DataFrame:
-    """
-    global driver, username, password, host, port, db, table, __EXPLAIN__, __GETDATA__, __SAVEDATA__, engine
-    db = default_db
-
-    cell = re.sub(' \:([a-zA-Z_][a-zA-Z0-9_]{,})', '%(\g<1>)s', cell)
-
-    unique_id = str(uuid.uuid4())
-    if '__EXPLAIN__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__EXPLAIN__:
-        cell = 'EXPLAIN ANALYZE ' + cell
-        __SQLCell_GLOBAL_VARS__.__EXPLAIN__ = False
-
-    elif '__EXPLAIN_GRAPH__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__:
-        cell = 'EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS, FORMAT JSON) ' + cell
-        
-    elif '__GETDATA__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__GETDATA__:
-        if 'MAKE_GLOBAL' not in path:
-            path = 'MAKE_GLOBAL=DATA RAW=True ' + path.strip()
-            print 'data available as DATA'
-        __SQLCell_GLOBAL_VARS__.__GETDATA__ = False
-    
-    elif '__SAVEDATA__' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.__SAVEDATA__:
-        # path = 'PATH="'+PATH+'" '+path # not sure what this did
-        __SQLCell_GLOBAL_VARS__.__SAVEDATA__ = PATH = False
-        
-    elif 'ENGINE' in dir(__SQLCell_GLOBAL_VARS__) and __SQLCell_GLOBAL_VARS__.ENGINE:
-        engine = create_engine(__SQLCell_GLOBAL_VARS__.ENGINE + application_name)
-
-    args = path.split(' ')
-    for n,i in enumerate(args):
-        if i:
-            glovar = i.split('=')
-            if i.startswith('MAKE_GLOBAL'):
-                make_global_param = glovar
-                exec(make_global_param[0]+'='+make_global_param[1]+'=None')
-                exec('__SQLCell_GLOBAL_VARS__.'+make_global_param[0] + '="' + make_global_param[1] + '"')
-            elif i.startswith('DB'):
-                db_param = glovar
-                db = i.replace('DB=', '')
-                # if db != __SQLCell_GLOBAL_VARS__.DB: # revisit
-                __SQLCell_GLOBAL_VARS__.DB = db
-                # engine = create_engine(str(engine.url)+application_name)
-                conn_string = engine.url
-                engine = create_engine(conn_string.drivername+"://"+conn_string.username+":"+conn_string.password+"@"+conn_string.host+":"+str(conn_string.port or 5432)+"/"+db+application_name)
-
-                home = expanduser("~")
-                filepath = home + '/.ipython/profile_default/startup/SQLCell/engines/engine_config.py'
-
-                for line in fileinput.FileInput(filepath,inplace=1):
-                    line = re.sub("default_db = '.*'","default_db = '"+db+"'", line)
-                    print line,
-
-                exec('__SQLCell_GLOBAL_VARS__.'+db_param[0] + '="' + db_param[1] + '"')
-                # exec('__SQLCell_GLOBAL_VARS__.engine ="'+str(engine.url)+'"')
-                exec('__SQLCell_GLOBAL_VARS__.ENGINE ="'+str(engine.url)+'"')
-
-            elif i.startswith('ENGINE'):
-                exec("global ENGINE\nENGINE="+i.replace('ENGINE=', ""))
-                if ENGINE != str(engine.url):
-                    exec("global engine\nengine=create_engine(\'"+eval(i.replace('ENGINE=', ""))+application_name+"\')")
-                    conn_str = engine.url
-                    driver, username = conn_str.drivername, conn_str.username
-                    password, host = conn_str.password, conn_str.host
-                    port, db = conn_str.port, conn_str.database
-                    exec('__SQLCell_GLOBAL_VARS__.ENGINE="'+i.replace('ENGINE=', "").replace("'", '')+application_name+'"')
-
-            elif i.startswith('TRANSACTION_BLOCK'):
-                __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = eval(glovar[1])
-                if not __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK:
-                    __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 0
-
-            elif i.startswith('PATH'):
-                __SQLCell_GLOBAL_VARS__.PATH = glovar[1]
-            else:
-                if not path.strip().startswith('--'):
-                    exec('__SQLCell_GLOBAL_VARS__.'+i)
-
-    display(HTML(
-        buttons_js(unique_id, __SQLCell_GLOBAL_VARS__.__ENGINES_JSON_DUMPS__, unique_db_id, db)
+class ArgHandler(object):
+    def __init__(self, line):
+        self.parser = argparse.ArgumentParser(description='SQLCell arguments')
+        self.parser.add_argument(
+            "-e", "--engine", 
+            help='Engine param, specify your connection string: --engine=postgresql://user:password@localhost:5432/mydatabase', 
+            required=False
         )
-    )
+        self.parser.add_argument(
+            "-v", "--var", 
+            help='Variable name to write output to: --var=foo', 
+            required=False
+        )
+        self.parser.add_argument(
+            "-b", "--background", 
+            help='whether to run query in background or not: --background runs in background', 
+            required=False, default=False, action="store_true"
+        )
+        self.parser.add_argument(
+            "-k", "--hook", 
+            help='define shortcuts with the --hook param',
+            required=False, default=False, action="store_true"
+        )
+        self.parser.add_argument(
+            "-r", "--refresh", 
+            help='refresh engines by specifying --refresh flag',
+            required=False, default=False, action="store_true"
+        )
+        self.args = self.parser.parse_args(shlex.split(line))
 
-    display(HTML(
-        """
-        <script type="text/Javascript">
-        $('.kernel_indicator_name')[0].innerHTML = '{engine}'
-        </script>
-        """.format(engine=engine.url.host)
-    ))
+class DBSessionHandler(object):
+    def __init__(self):
+        Base = automap_base()
+        engine = create_engine("sqlite:///sqlcell.db")
+        Base.prepare(engine, reflect=True)
+        self.classes = Base.classes
+        self.tables = Base.metadata.tables.keys()
+        self.Sqlcell = Base.classes.sqlcell
+        self.Engines = Base.classes.engines
+        self.Hooks = Base.classes.hooks
+        Session = sessionmaker(autoflush=False)
+        Session.configure(bind=engine)
+        self.session = Session()
 
-    for i in args:
-        if i.startswith('--'):
-            mode = 'new' if len(args) == 1 else args[1]
-            flag = i.replace('--', '')
-            try:
-                flag_output = eval_flag(flag)(cell, mode=mode, __SQLCell_GLOBAL_VARS__=__SQLCell_GLOBAL_VARS__)
-                flag_output_html = flag_output.replace('\n', '<br/>').replace('    ', '&nbsp;&nbsp;&nbsp;&nbsp;')
-                display(
-                    HTML(
-                        info_bar_js(unique_id, flag_output_html, flag_output, __SQLCell_GLOBAL_VARS__.ENGINE)
-                    )
-                )
-                __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False if __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ else __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__
-            except Exception as e:
-                print e
-                __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-            return None
-
-    psql_command = False
-    if cell.startswith('\\'):
-        psql_command = True
-        db_name = db if isinstance(db, (str, unicode)) else engine.url.database
-
-    t0 = time.time()
-
-    if not psql_command:
-        matches = re.findall(r'%\([a-zA-Z_][a-zA-Z0-9_]*\)s|:[a-zA-Z_][a-zA-Z0-9_]{,}', cell)
-        connection = engine.connect()
-        __SQLCell_GLOBAL_VARS__.engine = engine
-        __SQLCell_GLOBAL_VARS__.DB = engine.url.database
-        connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
-
+        dbs = self.session.query(self.Engines).all()
+        self.db_info = {}
+        for row in dbs:
+            engine = row.engine
+            self.db_info[row.db] = engine
+            self.db_info[engine] = engine
+            self.db_info[row.host] = engine
+            
+    def recycle(self):
+        pass
+    
+    def create(self):
+        pass
+    
+    def dispose(self):
+        pass
+            
+class HookHandler(DBSessionHandler):
+    """input common queries to remember with a key/value pair. ie, 
+       %%sql hook
+       \d=<common query>"
+       \dt=<another common query>"""
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        
+    def is_engine(self, engine: str):
         try:
-            data = connection.execute(cell, reduce(functools.partial(build_dict, __KERNEL_VARS__=__KERNEL_VARS__), matches, {}))
-        except exc.OperationalError as e:
-            print 'query cancelled...', e
-            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-            return None
-        except exc.ProgrammingError as e:
-            print e
-            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-            return None
-        except exc.ResourceClosedError as e:
-            display(
-                HTML(
-                    finished_query_js(unique_id, t1, engine)
-                )
-            )
-            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-            return None
-        # except Exception as e:
-        #     print e
-            # __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-        finally:
-            __SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL = 1
-            __SQLCell_GLOBAL_VARS__.TRANSACTION_BLOCK = True
-            connection.connection.connection.set_isolation_level(__SQLCell_GLOBAL_VARS__.ISOLATION_LEVEL)
+            create_engine(engine)
+            return True
+        except:
+            return False
+        
+    def add(self, line, cell):
+        "add hook to db"
+        cmds_to_add = []
+        hooks = cell.split('\n\n')
+        for hook in hooks:
+            hook = hook.strip()
+            if hook:
+                key_engine, cmd = [i.strip() for i in hook.split('=', 1)]
+                key, engine = key_engine.split(' ')
+                engine = engine
+                cmds_to_add.append((key, engine, cmd))
 
-        t1 = time.time() - t0
-        columns = data.keys()
-        if data.returns_rows:
-            table_data = [i for i in data] if 'pd' in globals() else [columns] + [i for i in data]
-            if hasattr(__SQLCell_GLOBAL_VARS__, 'DISPLAY') and __SQLCell_GLOBAL_VARS__.DISPLAY is False:
-                if 'MAKE_GLOBAL' in locals():
-                    var_name = make_global_param[1]
-                    exec('__builtin__.' + var_name + '=table_data')
-                else:
-                    var_name = 'DATA'
-                    exec('__builtin__.DATA=table_data')
-                    glovar = ['', 'DATA']
-                print 'To execute: ' + str(round(t1, 3)) + ' sec', '|', 
-                print 'Rows:', len(table_data), '|',
-                print 'DB:', engine.url.database, '| Host:', engine.url.host
-                print 'data not displayed but captured in variable: ' + var_name
-                __SQLCell_GLOBAL_VARS__.DISPLAY = True
-                return None
-            df = to_table(table_data)
+        for key, engine, cmd in cmds_to_add:
+            engine = self.db_info.get(engine, engine)
+            is_engine = self.is_engine(engine)
+            if not is_engine:
+                raise Exception('Alias not found or engine argument error')
+            self.session.add(self.Hooks(key=key, engine=engine, cmd=cmd))
+        self.session.commit()
+        return self
+        
+    def run(self, cell, engine_var):
+        cell = cell.replace('~', '').split(' ')
+        cell, cmd_args = cell[0], cell[1:]
+        hook_query = self.session.query(self.Hooks).filter_by(key=cell).first()
+        hook_cmd = hook_query.cmd
+        if engine_var:
+            hook_engine = create_engine(str(engine.url))
         else:
-            display(
-                HTML(
-                    finished_query_js(unique_id, t1, engine)
-                )
-            )
-            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-            return None
-
-    else:
-        __SQLCell_GLOBAL_VARS__.engine = engine
-        conn_str = engine.url 
-        psql_cmds = ['psql', '-h', conn_str.host, '-U', conn_str.username, '-W', db_name, '-c', cell.strip(), '-H']
-        p = subprocess.Popen(
-            psql_cmds, 
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        p.stdin.write(conn_str.password)
-        p.stdin.flush()
-        stdout, stderr = p.communicate()
-        rc = p.returncode
-        t1 = time.time() - t0
-        if '<table border=' not in stdout: # if tabular, psql will send back as a table because of the -H option
-            display(
-                HTML(
-                    """
-                    <script type="text/Javascript">
-                        $('#tableData%s').append(
-                            `%s`
-                            +"<p class='smallfont' id='dbinfo%s'>To execute: %s sec | "
-                            +'DB: %s | Host: %s'
-                        )
-                    </script>
-                    """  % (unique_id, str(stderr), unique_id, str(round(t1, 3)), engine.url.database, engine.url.host)
-                )
-            )
-            return None 
-        data = pd.read_html(stdout, header=0)[0]
-        columns = data.keys()
-        table_data = [i for i in data.values.tolist()]
-        df = data
+            hook_engine = create_engine(hook_query.engine)
+        SQLCell.current_hook_engine = hook_engine
+        return hook_engine, hook_cmd.format(*cmd_args)
     
-    t1 = time.time() - t0
-    t2 = time.time()
+    def refresh(self, cell):
+        self.session.query(Hooks).delete()
+        self.session.commit()
 
-    QUERY.raw = (cell, t1)
-    QUERY.history.append((cell, t1))
+@magics_class
+class SQLCell(Magics, DBSessionHandler):
     
-    columns = data.keys()
+    current_engine = False
+    current_hook_engine = False
+    modes = ['query', 'hook', 'refresh']
+    # consider cfg file for these types of params:
+    hook_indicator = '~'
+    
+    def __init__(self, shell, data):
+        # You must call the parent constructor
+        super().__init__(shell)
+        self.shell = shell
+        self.data = data
+        self.ipy = get_ipython()
+        self.refresh_optinos = ['hooks', 'engines']
 
-    if df.empty:
-        display(
-            HTML(
-                """
-                <script type="text/Javascript">
-                    $("#cancelQuery"""+unique_id+"""").addClass('disabled')
-
-                    $('#tableData"""+unique_id+"""').append(
-                        '<p class="smallfont" id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
-                        +'Rows: %s | '
-                        +'DB: %s | Host: %s'
-                    )
-                </script>
-                """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
-            )
-        )
-        return None
-
-    df.columns = columns
-
-    if __SQLCell_GLOBAL_VARS__.PATH:
-        try:
-            df.to_csv(__SQLCell_GLOBAL_VARS__.PATH)
-        except IOError as e:
-            print 'ATTENTION:', e
-            return None
-        finally:
-            __SQLCell_GLOBAL_VARS__.PATH = False
-
-    if 'MAKE_GLOBAL' in locals():   
-        exec('__builtin__.' + make_global_param[1] + '=df if not __SQLCell_GLOBAL_VARS__.RAW else table_data')
-        __SQLCell_GLOBAL_VARS__.RAW = False
+    @property
+    def latest_engine(self) -> Engine:
+        record = self.session.query(self.Engines).order_by(desc(self.Engines.dt)).limit(1).first()
+        if record:
+            engine = record.engine
+            return create_engine(engine)
+    
+    def add_engine(self, engine: Engine) -> None:
+        host = engine.url.host
+        db = engine.url.database
+        engine_str = str(engine.url)
+        engine_exists_check = self.session.query(self.Engines).filter_by(db=db, host=host, engine=engine_str).first()
+        if engine_exists_check: return None
+        self.session.add(self.Engines(db=db, host=host, engine=engine_str))
+        self.session.commit()
         
-
-    str_data = df.to_csv(sep="\t", encoding='utf-8') # for downloading
-
-    t3 = time.time() - t2
-
-    sql_sample = cell[:] if len(cell) < 100 else cell[:100] + " ..."
+    def _get_engine(self, by: str='host', **kwargs) -> Engine:
+        return self.session.query(self.Engines).where(host=by).first()
     
-    display(
-        HTML(
-            """
-            <script type="text/Javascript">
-                $('#saveData"""+unique_id+"""').removeClass('disabled');
-                $("#cancelQuery"""+unique_id+"""").addClass('disabled')
-
-                $('#saveData"""+unique_id+"""').on('click', function(){
-                    if (!$(this).hasClass('disabled')){
-                        saveData(`"""+str_data+"""`, 'data.tsv');
-                    }
-                });
-                $('#tableData"""+unique_id+"""').append(
-                    '<p class="smallfont" id=\"dbinfo"""+unique_id+"""\">To execute: %s sec | '
-                    +'Rows: %s | '
-                    +'DB: %s | Host: %s'
-                )
-            </script>
-            """ % (str(round(t1, 3)), len(df.index), engine.url.database, engine.url.host)
-        )
-    )
+    def register_line_vars(self, line):
+        """options: engine, var, bg"""
+        mode = self.get_mode(line)
+        if line.strip() and mode == 'query':
+            line = line.split(' ')
+            line_vars = {}
+            for var in line:
+                key,value = var.split('=')
+                line_vars[key] = value
+            self.line_vars = line_vars
+            return line_vars
+        return {}
     
-    if __SQLCell_GLOBAL_VARS__.NOTIFY:           
-        display(
-            HTML(
-                notify_js(unique_id, cell, t1, df, engine, 0 if isinstance(__SQLCell_GLOBAL_VARS__.NOTIFY, bool) else __SQLCell_GLOBAL_VARS__.NOTIFY)
-            )
-        )
-
-    table_name = re.search('from\s*([a-z_][a-z\-_0-9]{,})', cell, re.IGNORECASE)
-    table_name = None if not table_name else table_name.group(1).strip()
-
-    if __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__:
-        query_plan_obj = table_data[0][0][0]
-        try:
-            xPos = max(ParseNodes(query_plan_obj).get_depth())
-            qp = ParseNodes(query_plan_obj).node_walk('Plans', nodes={}, xPos=xPos)
-
-            nodes_enum = [{'name': i['name']} for i in qp['nodes']]
-            for i in reversed(qp['links']):
-                i['source'] = nodes_enum.index({'name': i['source']})
-                i['target'] = nodes_enum.index({'name': i['target']})
-            query_plan_depth = qp['depth']
-
-            query_plan = json.dumps(qp)
-
-            display(
-                HTML(
-                    sankey_js(unique_id, query_plan_depth, query_plan)
-                )
-            )
-
-        except KeyError as e:
-            print "No visual available for this query"
-        finally:
-            __SQLCell_GLOBAL_VARS__.__EXPLAIN_GRAPH__ = False
-        return None
-
-    if __SQLCell_GLOBAL_VARS__.EDIT:
-        __SQLCell_GLOBAL_VARS__.EDIT = False
-        primary_key_results = engine.execute("""
-                SELECT               
-                  %(table_name)s as table_name, pg_attribute.attname as column_name
-                FROM pg_index, pg_class, pg_attribute, pg_namespace 
-                WHERE 
-                  pg_class.oid = %(table_name)s::regclass AND 
-                  indrelid = pg_class.oid AND 
-                  nspname = 'public' AND 
-                  pg_class.relnamespace = pg_namespace.oid AND 
-                  pg_attribute.attrelid = pg_class.oid AND 
-                  pg_attribute.attnum = any(pg_index.indkey)
-                 AND indisprimary
-             """, {'table_name': table_name}).first()
-
-        if primary_key_results:
-            primary_key = primary_key_results.column_name
-
-            if not re.search('join', cell, re.IGNORECASE):
-
-                HTMLTable(table_data, unique_id).display(columns, msg=' | EDIT MODE')
-
-                display(
-                    HTML( 
-                        table_js(unique_id, table_name, primary_key)
-                    )
-                )
-
+    def push_var(self, obj):
+        if hasattr(self, 'line_vars'):
+            var = self.line_vars.get('var')
+            self.ipy.push({var: obj})
+            return True
+        
+    def run_query(self, engine, query, var=None):
+        results = pd.DataFrame([dict(row) for row in engine.execute(query)])
+        self.ipy.push({var or 'DF': results})
+        return results
+    
+    def run_in_background(self, *args):
+        pool = ThreadPool(processes=1)
+        async_result = pool.apply_async(self.run_query, (*args))
+        return async_result
+    
+    def get_engine(self, engine_var: str, as_binary: bool=False):
+        if engine_var:
+            if engine_var not in self.db_info:
+                engine = create_engine(engine_var) #new engines
+                self.add_engine(engine)
             else:
-                HTMLTable(table_data, unique_id).display(columns, msg=" | CAN\\'T EDIT MULTIPLE TABLES")
-                return None
-
-        elif psql_command:
-            table_match = re.search('\\\d +([a-zA-Z_][a-zA-Z0-9_]{,})', cell)
-            table_name = table_match if not table_match else table_match.group(1)
-            if table_match:
-                HTMLTable(table_data, unique_id).display(columns, msg=' | ALTER TABLE')
-                display(
-                    HTML(
-                        psql_table_js(unique_id, table_name)
-                    )
-                )
-            else:
-                HTMLTable(table_data, unique_id).display(columns, msg=' | <code>\\\d</code> ONLY')
-            return None
-
+                engine = create_engine(self.db_info[engine_var]) #engine lookup
         else:
-            HTMLTable(table_data, unique_id).display(columns, msg=' | TABLE HAS NO PK')
-            return None
-    else:
-        HTMLTable(table_data, unique_id).display(columns, msg=' | READ MODE')
-        return None
+            engine = SQLCell.current_engine or self.latest_engine
+        return engine
+    
+    def get_mode(self, line):
+        line = [l.split('=') for l in line.split('=')]
+        if len(line) == 0:
+            if line in SQLCell.modes: return line
+            else: raise Exception('Invalid mode, please review docs')
+        return 'query'
+    
+    @line_cell_magic
+    def sql(self, line: str="", cell: str="") -> None:
+        
+        line = line.strip()
+        cell = cell.strip()
+        line_args = ArgHandler(line).args
+        container_var = line_args.var 
+        engine_var = line_args.engine
+        background = line_args.background
+        hook = line_args.hook
+        refresh = line_args.refresh
+        
+        engine = self.get_engine(engine_var)
+        ########################## HookHandler logic ########################
+        hook_handler = HookHandler()
+        if hook:
+            hook_handler.add(line, cell)
+            return ('Hook successfully registered')
+        
+        if cell.startswith(self.hook_indicator):
+            engine, cell = hook_handler.run(cell, engine_var)
+        ########################## End HookHandler logic ####################
+        ############################ Refresh logic ##########################
+        if refresh and cell in self.refresh_optinos:
+            if cell in self.tables:
+                self.session.query(getattr(self.classes, cell)).delete()
+                self.session.commit()
+            return ('Removed all records from ' + cell)
+        ############################ End Refresh logic ######################
+
+        results = self.run_query(engine, cell, container_var)
+        
+        self.push_var(results)
+        engine.pool.dispose()
+        
+        # reinitialize to update db_info, find better way
+        self.db_info = SQLCell(self.shell, self.data).db_info 
+        SQLCell.current_engine = engine
+        return results
+    
+class TabCompleter(DBSessionHandler):
+    pass
+    
+class BackgroundHandler(object):
+    """bg=True"""
+    pass
+
+class ControlPanel(object):
+    # def run_btn_callback(evt): # figure out how to execute a cell
+    #     Javascript("""
+    #         var CodeCell = __webpack_require__(/*! @jupyterlab/cells */ "USP6").CodeCell
+    #         CodeCell.execute()
+    #     """)
 
 
-def sql(path, cell):
-    if __SQLCell_GLOBAL_VARS__.INITIAL_QUERY:
-        load_js_files()
-        time.sleep(0.4) # to make sure all the JS files load
+    # def get_control_panel(): # remove until I can get JS working
+    #     run_btn = Button(description='run')
+    #     run_btn.on_click(run_btn_callback)
+    #     stop_btn = Button(description='stop')
+    #     bg_btn = Button(description='bg')
 
-    t = threading.Thread(
-        target=_SQL, 
-        args=(
-            path, cell, {
-                    k:v
-                    for (k,v) in __KERNEL_VARS__.g.iteritems() 
-                        if k not in ('In', 'Out', 'v', 'k') 
-                            and not k.startswith('_') 
-                            and isinstance(v, 
-                               (str, int, float, list, unicode, tuple)
-                            )
-                }
-            )
-        )
-    t.daemon = True
-    t.start()
-    __SQLCell_GLOBAL_VARS__.INITIAL_QUERY = False
-    return None
+    #     left_box = VBox([run_btn])
+    #     center_box = VBox([stop_btn])
+    #     right_box = VBox([bg_btn])
+    #     control_panel = HBox([left_box, center_box, right_box])
+    #     return control_panel
+    pass
 
 
-js = "IPython.CodeCell.config_defaults.highlight_modes['magic_sql'] = {'reg':[/^%%sql/]};"
-IPython.core.display.display_javascript(js, raw=True)
- 
+class EngineHandler(DBSessionHandler):
+    """remove all engines from sqlcell.db:
+       %%sql refresh
+       may have to use @cell_line_magic.
+       add multiple new engines:
+       %%sql add
+       foo=<engine str>
+       bar=<another engine str>
+       baz=<another engine str>"""
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        
+    def view(self):
+        "show all alias/engines"
+        pass
+    
+    def refresh(self, cell):
+        self.session.query(self.Engines).delete()
+        self.session.commit()
+
+
+def load_ipython_extension(ipython):
+    magics = SQLCell(ipython, [])
+    ipython.register_magics(magics)
