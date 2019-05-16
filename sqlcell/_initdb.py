@@ -31,7 +31,13 @@ create_hooks_sql = """CREATE TABLE IF NOT EXISTS hooks (
 
 tables = [create_table_sql, create_engines_sql, create_hooks_sql]
 
-if __name__ == '__main__':
+def run():
+    """
+        initialize sqlite3 database to record engines/hooks
+    """
     conn = sqlite3.connect(db_file)
     for table in tables:
         conn.execute(table)
+
+if __name__ == '__main__':
+    run()

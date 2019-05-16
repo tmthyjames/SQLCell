@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine    
-from db.session import DBSessionHandler
+from sqlcell.db import DBSessionHandler
 
 class HookHandler(DBSessionHandler):
     """input common queries to remember with a key/value pair. ie, 
