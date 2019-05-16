@@ -13,6 +13,8 @@ pandas = "*"
 ipywidgets = "*"
 pymssql = "*"
 cython = "*"
+jupyterlab-git = "*"
+psycopg2 = "*"
 
 [requires]
 python_version = "3.7"
