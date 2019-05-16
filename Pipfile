@@ -15,6 +15,7 @@ pymssql = "*"
 cython = "*"
 jupyterlab-git = "*"
 psycopg2 = "*"
+six = ">=1.9.0"
 
 [requires]
 python_version = "3.7"

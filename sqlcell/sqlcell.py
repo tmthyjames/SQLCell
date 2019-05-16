@@ -9,9 +9,10 @@ from sqlalchemy.engine.base import Engine
 import pandas as pd
 import pickle
 ################# SQLCell modules #################
-from db.engine import EngineHandler, DBSessionHandler
-from args.line_args import ArgHandler
-from hooks.hooks import HookHandler
+from sqlcell.db import EngineHandler, DBSessionHandler
+from sqlcell.args import ArgHandler
+from sqlcell.hooks import HookHandler
+from sqlcell._initdb import run
 
 
 @magics_class
@@ -29,7 +30,7 @@ class SQLCell(Magics, DBSessionHandler):
         self.shell = shell
         self.data = data
         self.ipy = get_ipython()
-        self.refresh_optinos = ['hooks', 'engines']
+        self.refresh_options = ['hooks', 'engines']
 
     @property
     def latest_engine(self) -> Engine:
@@ -123,7 +124,7 @@ class SQLCell(Magics, DBSessionHandler):
             SQLCell.current_hook_engine = hook_handler.hook_engine
         ########################## End HookHandler logic ####################
         ############################ Refresh logic ##########################
-        if refresh and cell in self.refresh_optinos:
+        if refresh and cell in self.refresh_options:
             if cell in self.tables:
                 self.session.query(getattr(self.classes, cell)).delete()
                 self.session.commit()
@@ -140,7 +141,7 @@ class SQLCell(Magics, DBSessionHandler):
         SQLCell.current_engine = engine
         return results
 
-
 def load_ipython_extension(ipython):
+    run()
     magics = SQLCell(ipython, [])
     ipython.register_magics(magics)
