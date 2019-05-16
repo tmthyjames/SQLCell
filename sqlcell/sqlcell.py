@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy import desc, asc
 from sqlalchemy.engine.base import Engine
+from sqlalchemy import sql
 import pandas as pd
 import pickle
 ################# SQLCell modules #################
@@ -70,9 +71,10 @@ class SQLCell(Magics, DBSessionHandler):
             self.ipy.push({var: obj})
             return True
         
-    def run_query(self, engine, query, var=None):
-        results = pd.DataFrame([dict(row) for row in engine.execute(query)])
-        self.ipy.push({var or 'DF': results})
+    def run_query(self, engine, query, var=None, **kwargs):
+        results = pd.DataFrame([dict(row) for row in engine.execute(*query)])
+        if var:
+            self.ipy.push({var: results})
         return results
     
     def run_in_background(self, *args):
@@ -97,6 +99,15 @@ class SQLCell(Magics, DBSessionHandler):
             if line in SQLCell.modes: return line
             else: raise Exception('Invalid mode, please review docs')
         return 'query'
+
+    def get_bind_params(self, params, ipython):
+        return {key:getattr(ipython.user_module, key) for key in params.keys()}
+
+    def get_sql_statement(self, cell):
+        text = sql.text(cell)
+        params = text.compile().params
+        bind_params = self.get_bind_params(params, self.ipy)
+        return (text, bind_params)
     
     @line_cell_magic
     def sql(self, line: str="", cell: str="") -> None:
@@ -130,9 +141,8 @@ class SQLCell(Magics, DBSessionHandler):
                 self.session.commit()
             return ('Removed all records from ' + cell)
         ############################ End Refresh logic ######################
-
-        results = self.run_query(engine, cell, container_var)
-        
+        sql_statemnent_params = self.get_sql_statement(cell)
+        results = self.run_query(engine=engine, query=sql_statemnent_params, var=container_var)
         self.push_var(results)
         engine.pool.dispose()
         
