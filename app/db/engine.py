@@ -23,3 +23,6 @@ class EngineHandler(DBSessionHandler):
     def alias(self):
         "allow alias for each engine"
         pass
+
+    def list(self, *srgs, **kwargs):
+        pass
