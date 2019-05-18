@@ -15,7 +15,7 @@ class ArgHandler(object):
             required=False
         )
         self.parser.add_argument(
-            "-b", "--background", 
+            "-bg", "--background", 
             help='whether to run query in background or not: --background runs in background', 
             required=False, default=False, action="store_true"
         )
