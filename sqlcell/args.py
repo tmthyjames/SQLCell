@@ -10,6 +10,11 @@ class ArgHandler(object):
             required=False
         )
         self.parser.add_argument(
+            "-es", "--engines", 
+            help='add new engines to be aliased and stored for future use without having to specify entire connection string.', 
+            required=False, default=False, action="store_true"
+        )
+        self.parser.add_argument(
             "-v", "--var", 
             help='Variable name to write output to: --var=foo', 
             required=False
@@ -26,7 +31,7 @@ class ArgHandler(object):
         )
         self.parser.add_argument(
             "-r", "--refresh", 
-            help='refresh engines by specifying --refresh flag',
+            help='refresh engines/hooks by specifying --refresh flag',
             required=False, default=False, action="store_true"
         )
         self.args = self.parser.parse_args(shlex.split(line))

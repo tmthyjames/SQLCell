@@ -55,5 +55,5 @@ class HookHandler(DBSessionHandler):
             print(row.key, "|", row.cmd, " | Engine: ", row.engine)
     
     def refresh(self, cell):
-        self.session.query(Hooks).delete()
+        self.session.query(self.Hooks).delete()
         self.session.commit()
