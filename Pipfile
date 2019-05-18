@@ -1,0 +1,21 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+sqlalchemy = "*"
+jupyterlab = "*"
+ipykernel = "*"
+pandas = "*"
+ipywidgets = "*"
+pymssql = "*"
+cython = "*"
+jupyterlab-git = "*"
+six = ">=1.9.0"
+psycopg2 = "*"
+
+[requires]
+python_version = "3.7"
