@@ -19,6 +19,7 @@ create_settings_sql = """CREATE TABLE IF NOT EXISTS settings (
 
 create_engines_sql = """CREATE TABLE IF NOT EXISTS engines (
  id integer PRIMARY KEY,
+ alias text,
  db text NOT NULL,
  host text NOT NULL,
  engine text NOT NULL,

@@ -18,7 +18,7 @@ from sqlcell._initdb import run
 
 
 @magics_class
-class SQLCell(Magics, DBSessionHandler):
+class SQLCell(Magics, EngineHandler):
     
     current_engine = False
     current_hook_engine = False
@@ -28,31 +28,12 @@ class SQLCell(Magics, DBSessionHandler):
     
     def __init__(self, shell, data):
         # You must call the parent constructor
-        super().__init__(shell)
+        super(SQLCell, self).__init__(shell)
         self.shell = shell
         self.data = data
         self.ipy = get_ipython()
         self.refresh_options = ['hooks', 'engines']
         self.line_args = None
-
-    @property
-    def latest_engine(self) -> Engine:
-        record = self.session.query(self.Engines).order_by(desc(self.Engines.dt)).limit(1).first()
-        if record:
-            engine = record.engine
-            return create_engine(engine)
-    
-    def add_engine(self, engine: Engine) -> None:
-        host = engine.url.host
-        db = engine.url.database
-        engine_str = str(engine.url)
-        engine_exists_check = self.session.query(self.Engines).filter_by(db=db, host=host, engine=engine_str).first()
-        if engine_exists_check: return None
-        self.session.add(self.Engines(db=db, host=host, engine=engine_str))
-        self.session.commit()
-        
-    def _get_engine(self, by: str='host', **kwargs) -> Engine:
-        return self.session.query(self.Engines).where(host=by).first()
     
     def register_line_vars(self, line):
         """options: engine, var, bg"""
@@ -118,15 +99,35 @@ class SQLCell(Magics, DBSessionHandler):
         
         line = line.strip()
         cell = cell.strip()
+
         line_args = ArgHandler(line).args
         container_var = line_args.var 
         engine_var = line_args.engine
         background = line_args.background
         hook = line_args.hook
         refresh = line_args.refresh
+        add_engines = line_args.engines
+        # refer to all args as self.line_args.<arg> to get rid of entire block ^?
         self.line_args = line_args
-        
-        engine = self.get_engine(engine_var)
+
+        ############################ Refresh logic ##########################
+        if refresh and cell in self.refresh_options:
+            if cell in self.tables:
+                self.session.query(getattr(self.classes, cell)).delete()
+                self.session.commit()
+            return ('Removed all records from ' + cell)
+        ############################ End Refresh logic ######################
+        ############################ Engine Aliases Logic ###################
+        if self.line_args.engines:
+            if cell == 'list':
+                return self.list()
+            else:
+                self.add_alias(cell)
+                # need to reinit db_info to update new engines added
+                self.db_info = SQLCell(self.shell, self.data).db_info 
+                return ('Engines successfully registered')
+        ############################ End Engine Aliases #####################
+        engine = self.get_engine(engine_var) # need engine below but not in refresh or alias logic
         ########################## HookHandler logic ########################
         hook_handler = HookHandler(engine)
         if hook:
@@ -139,15 +140,8 @@ class SQLCell(Magics, DBSessionHandler):
             engine, cell = hook_handler.run(cell, engine_var)
             SQLCell.current_hook_engine = hook_handler.hook_engine
         ########################## End HookHandler logic ####################
-        ############################ Refresh logic ##########################
-        if refresh and cell in self.refresh_options:
-            if cell in self.tables:
-                self.session.query(getattr(self.classes, cell)).delete()
-                self.session.commit()
-            return ('Removed all records from ' + cell)
-        ############################ End Refresh logic ######################
         sql_statemnent_params = self.get_sql_statement(cell)
-        results = self.query_router(engine, sql_statemnent_params, line_args.var, self.async_handler)
+        results = self.query_router(engine, sql_statemnent_params, self.line_args.var, self.async_handler)
         # self.push_var(results)
         engine.pool.dispose()
         
