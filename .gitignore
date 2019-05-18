@@ -1,7 +1,3 @@
-sqlcell.db
-sqlcell_dev*.ipynb
+
 *.pyc
-**/.ipynb_checkpoints
-.DS_Store
-*.egg-info
-dist/sqlcell-*
+
