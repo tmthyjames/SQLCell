@@ -6,7 +6,15 @@ db_file = 'sqlcell.db'
 create_table_sql = """CREATE TABLE IF NOT EXISTS sqlcell (
  id integer PRIMARY KEY,
  key text NOT NULL,
- value BINARY NOT NULL
+ value BINARY NOT NULL,
+ dt datetime default current_timestamp
+);"""
+
+create_settings_sql = """CREATE TABLE IF NOT EXISTS settings (
+ id integer PRIMARY KEY,
+ key text NOT NULL,
+ value text NOT NULL,
+ dt datetime default current_timestamp
 );"""
 
 create_engines_sql = """CREATE TABLE IF NOT EXISTS engines (
@@ -29,7 +37,7 @@ create_hooks_sql = """CREATE TABLE IF NOT EXISTS hooks (
 );
 """
 
-tables = [create_table_sql, create_engines_sql, create_hooks_sql]
+tables = [create_table_sql, create_settings_sql, create_engines_sql, create_hooks_sql]
 
 def run():
     """
