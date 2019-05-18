@@ -9,6 +9,7 @@ from sqlalchemy.engine.base import Engine
 from sqlalchemy import sql
 import pandas as pd
 import pickle
+import threading
 ################# SQLCell modules #################
 from sqlcell.db import EngineHandler, DBSessionHandler
 from sqlcell.args import ArgHandler
@@ -32,6 +33,7 @@ class SQLCell(Magics, DBSessionHandler):
         self.data = data
         self.ipy = get_ipython()
         self.refresh_options = ['hooks', 'engines']
+        self.line_args = None
 
     @property
     def latest_engine(self) -> Engine:
@@ -64,23 +66,25 @@ class SQLCell(Magics, DBSessionHandler):
             self.line_vars = line_vars
             return line_vars
         return {}
-    
+
     def push_var(self, obj):
-        if hasattr(self, 'line_vars'):
-            var = self.line_vars.get('var')
-            self.ipy.push({var: obj})
-            return True
+        if self.line_args.var:
+            self.ipy.push({self.line_args.var: obj})
+
+    def async_handler(self, obj):
+        self.push_var(obj)
+        return obj
         
-    def run_query(self, engine, query, var=None, **kwargs):
-        results = pd.DataFrame([dict(row) for row in engine.execute(*query)])
-        if var:
-            self.ipy.push({var: results})
-        return results
+    def run_query(self, engine, query_params, var=None, callback=None, **kwargs):
+        results = pd.DataFrame([dict(row) for row in engine.execute(*query_params)])
+        return callback(results)
     
-    def run_in_background(self, *args):
-        pool = ThreadPool(processes=1)
-        async_result = pool.apply_async(self.run_query, (*args))
-        return async_result
+    def query_router(self, *args):
+        if self.line_args.background:
+            processThread = threading.Thread(target=self.run_query, args=args)
+            processThread.start()
+            return None
+        return self.run_query(*args)
     
     def get_engine(self, engine_var: str, as_binary: bool=False):
         if engine_var:
@@ -120,6 +124,7 @@ class SQLCell(Magics, DBSessionHandler):
         background = line_args.background
         hook = line_args.hook
         refresh = line_args.refresh
+        self.line_args = line_args
         
         engine = self.get_engine(engine_var)
         ########################## HookHandler logic ########################
@@ -142,8 +147,8 @@ class SQLCell(Magics, DBSessionHandler):
             return ('Removed all records from ' + cell)
         ############################ End Refresh logic ######################
         sql_statemnent_params = self.get_sql_statement(cell)
-        results = self.run_query(engine=engine, query=sql_statemnent_params, var=container_var)
-        self.push_var(results)
+        results = self.query_router(engine, sql_statemnent_params, line_args.var, self.async_handler)
+        # self.push_var(results)
         engine.pool.dispose()
         
         # reinitialize to update db_info, find better way
