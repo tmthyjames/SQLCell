@@ -4,4 +4,5 @@ sqlcell_dev*.ipynb
 **/.ipynb_checkpoints
 .DS_Store
 *.egg-info
+dist/*
 dist/sqlcell-*
