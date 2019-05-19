@@ -6,7 +6,7 @@ db_file = 'sqlcell.db'
 create_table_sql = """CREATE TABLE IF NOT EXISTS sqlcell (
  id integer PRIMARY KEY,
  key text NOT NULL,
- value BINARY NOT NULL,
+ value BINARY,
  dt datetime default current_timestamp
 );"""
 

@@ -1,7 +1,8 @@
 from sqlalchemy import create_engine    
-from sqlcell.db import DBSessionHandler
+from sqlcell.db import DBSessionHandler, EngineHandler
+import pandas as pd
 
-class HookHandler(DBSessionHandler):
+class HookHandler(EngineHandler):
     """input common queries to remember with a key/value pair. ie, 
        %%sql hook
        \d=<common query>"
@@ -44,6 +45,7 @@ class HookHandler(DBSessionHandler):
         hook_query = self.session.query(self.Hooks).filter_by(key=cell).first()
         hook_cmd = hook_query.cmd
         if engine_var:
+            engine = self.get_engine(engine_var)
             hook_engine = create_engine(str(engine.url))
         else:
             hook_engine = create_engine(hook_query.engine)
@@ -51,8 +53,15 @@ class HookHandler(DBSessionHandler):
         return hook_engine, hook_cmd.format(*cmd_args)
 
     def list(self, *srgs, **kwargs):
+        hooks = []
         for row in self.session.query(self.Hooks).all():
-            print(row.key, "|", row.cmd, " | Engine: ", row.engine)
+            hook = {
+                'Alias': row.key,
+                'Hook': row.cmd,
+                'Engine': row.engine
+            }
+            hooks.append(hook)
+        return pd.DataFrame(hooks)
     
     def refresh(self, cell):
         self.session.query(self.Hooks).delete()

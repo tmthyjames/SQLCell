@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy import desc, asc
 from sqlalchemy.engine.base import Engine
+import pandas as pd
 import re
 
 class DBSessionHandler(object):
@@ -55,8 +56,14 @@ class EngineHandler(DBSessionHandler):
         
     def list(self):
         "show all alias/engines"
-        for row in self.session.query(self.Engines).filter(self.Engines.alias != None):
-            print(row.alias, " | ", row.engine)
+        engines = []
+        for row in self.session.query(self.Engines):
+            engine = {
+                'Alias': row.alias,
+                'Engine': row.engine
+            }
+            engines.append(engine)
+        return pd.DataFrame(engines)
 
     @property
     def latest_engine(self) -> Engine:
@@ -64,6 +71,17 @@ class EngineHandler(DBSessionHandler):
         if record:
             engine = record.engine
             return create_engine(engine)
+
+    def get_engine(self, engine_var: str, session_engine: bool or Engine=False, as_binary: bool=False):
+        if engine_var:
+            if engine_var not in self.db_info:
+                engine = create_engine(engine_var) #new engines
+                self.add_engine(engine)
+            else:
+                engine = create_engine(self.db_info[engine_var]) #engine lookup
+        else:
+            engine = session_engine or self.latest_engine
+        return engine
     
     def add_engine(self, engine: Engine, alias: str=None) -> None:
         if isinstance(engine, str):
@@ -82,7 +100,6 @@ class EngineHandler(DBSessionHandler):
         for i in re.split('\n{1,}', cell):
             row = i.replace(' ', '').split('=', 1)
             if row[1:]:
-                print(row[:])
                 alias, engine = row
                 self.add_engine(engine, alias=alias)
         return ('Engines successfully registered')
