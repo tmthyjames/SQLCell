@@ -67,17 +67,6 @@ class SQLCell(Magics, EngineHandler):
             return None
         return self.run_query(*args)
     
-    def get_engine(self, engine_var: str, as_binary: bool=False):
-        if engine_var:
-            if engine_var not in self.db_info:
-                engine = create_engine(engine_var) #new engines
-                self.add_engine(engine)
-            else:
-                engine = create_engine(self.db_info[engine_var]) #engine lookup
-        else:
-            engine = SQLCell.current_engine or self.latest_engine
-        return engine
-    
     def get_mode(self, line):
         line = [l.split('=') for l in line.split('=')]
         if len(line) == 0:
@@ -127,7 +116,8 @@ class SQLCell(Magics, EngineHandler):
                 self.db_info = SQLCell(self.shell, self.data).db_info 
                 return ('Engines successfully registered')
         ############################ End Engine Aliases #####################
-        engine = self.get_engine(engine_var) # need engine below but not in refresh or alias logic
+         # need engine below but not in refresh or alias logic
+        engine = self.get_engine(engine_var, session_engine=SQLCell.current_engine)
         ########################## HookHandler logic ########################
         hook_handler = HookHandler(engine)
         if hook:
@@ -137,6 +127,7 @@ class SQLCell(Magics, EngineHandler):
             return ('Hook successfully registered')
         
         if cell.startswith(self.hook_indicator):
+            # run returns `engine, cmd`, consider renaming
             engine, cell = hook_handler.run(cell, engine_var)
             SQLCell.current_hook_engine = hook_handler.hook_engine
         ########################## End HookHandler logic ####################
