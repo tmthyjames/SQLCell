@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="sqlcell",
-    version="0.2.0.12",
+    version="0.2.0.14",
     description="run sql in jupyter notebooks or jupyter lab",
     license="MIT",
     author="Tim Dobbins",
