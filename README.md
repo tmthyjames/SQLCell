@@ -5,6 +5,6 @@ Bringing together the power of SQL, Python, and Javascript. Run raw, multi-threa
 
 Find a tutorial <a href="https://tmthyjames.github.io/2019/may/SQLCell-version-2/">here</a>.
 
-## Install:
+## To Install:
 
 `pip install sqlcell`
