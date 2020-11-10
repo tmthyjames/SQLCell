@@ -1,3 +1,11 @@
-
+sqlcell.db
+sqlcell_dev*.ipynb
+sqlcell_demo*.ipynb
 *.pyc
-
+**/.ipynb_checkpoints
+.DS_Store
+*.egg-info
+dist/*
+dist/sqlcell-*
+**sqlcell.db**
+.vscode/*
