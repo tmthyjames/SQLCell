@@ -8,3 +8,4 @@ sqlcell_demo*.ipynb
 dist/*
 dist/sqlcell-*
 **sqlcell.db**
+.vscode/*

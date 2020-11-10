@@ -25,7 +25,7 @@ class SQLCell(Magics, EngineHandler):
     modes = ['query', 'hook', 'refresh']
     # consider yaml file for these types of params:
     hook_indicator = '~'
-    
+
     def __init__(self, shell, data):
         # You must call the parent constructor
         super(SQLCell, self).__init__(shell)
@@ -34,7 +34,7 @@ class SQLCell(Magics, EngineHandler):
         self.ipy = get_ipython()
         self.refresh_options = ['hooks', 'engines']
         self.line_args = None
-    
+
     def register_line_vars(self, line):
         """options: engine, var, bg"""
         mode = self.get_mode(line)
@@ -55,18 +55,18 @@ class SQLCell(Magics, EngineHandler):
     def async_handler(self, obj):
         self.push_var(obj)
         return obj
-        
+
     def run_query(self, engine, query_params, var=None, callback=None, **kwargs):
         results = pd.DataFrame([dict(row) for row in engine.execute(*query_params)])
         return callback(results)
-    
+
     def query_router(self, *args):
         if self.line_args.background:
             processThread = threading.Thread(target=self.run_query, args=args)
             processThread.start()
             return None
         return self.run_query(*args)
-    
+
     def get_mode(self, line):
         line = [l.split('=') for l in line.split('=')]
         if len(line) == 0:
@@ -82,15 +82,15 @@ class SQLCell(Magics, EngineHandler):
         params = text.compile().params
         bind_params = self.get_bind_params(params, self.ipy)
         return (text, bind_params)
-    
+
     @line_cell_magic
     def sql(self, line: str="", cell: str="") -> None:
-        
+
         line = line.strip()
         cell = cell.strip()
 
         line_args = ArgHandler(line).args
-        container_var = line_args.var 
+        container_var = line_args.var
         engine_var = line_args.engine
         background = line_args.background
         hook = line_args.hook
@@ -113,7 +113,7 @@ class SQLCell(Magics, EngineHandler):
             else:
                 self.add_alias(cell)
                 # need to reinit db_info to update new engines added
-                self.db_info = SQLCell(self.shell, self.data).db_info 
+                self.db_info = SQLCell(self.shell, self.data).db_info
                 return ('Engines successfully registered')
         ############################ End Engine Aliases #####################
          # need engine below but not in refresh or alias logic
@@ -121,11 +121,11 @@ class SQLCell(Magics, EngineHandler):
         ########################## HookHandler logic ########################
         hook_handler = HookHandler(engine)
         if hook:
-            if cell == 'list': 
+            if cell == 'list':
                 return hook_handler.list()
             hook_handler.add(line, cell)
             return ('Hook successfully registered')
-        
+
         if cell.startswith(self.hook_indicator):
             # run returns `engine, cmd`, consider renaming
             engine, cell = hook_handler.run(cell, engine_var)
@@ -135,9 +135,9 @@ class SQLCell(Magics, EngineHandler):
         results = self.query_router(engine, sql_statemnent_params, self.line_args.var, self.async_handler)
         # self.push_var(results)
         engine.pool.dispose()
-        
+
         # reinitialize to update db_info, find better way
-        self.db_info = SQLCell(self.shell, self.data).db_info 
+        self.db_info = SQLCell(self.shell, self.data).db_info
         SQLCell.current_engine = engine
         return results
 
